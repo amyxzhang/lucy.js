@@ -1,0 +1,108 @@
+* {
+	font: inherit;
+}
+
+body {
+	margin: 0;
+	font: 100%/1.5  Helvetica Neue, sans-serif;
+}
+
+h1 {
+	font: 100 300%/1 Helvetica Neue, sans-serif;
+	text-align: center;
+}
+
+body > section {
+	max-width: 40rem;
+	margin: auto;
+}
+
+header, footer {
+	padding: .5em calc(50% - 20rem);
+}
+
+header {
+	font-size: 150%;
+	background: hsl(320, 100%, 30%);
+	background: purple radial-gradient(circle, hsl(330, 100%,28%), #369);
+	background: purple radial-gradient(circle, hsl(330, 100%, 28%), rebeccapurple);
+	color: white;
+}
+
+	header p {
+		color: hsla(0, 0%, 100%, .75);
+		font-weight: 400;
+	}
+
+input {
+	border: 0;
+	background: #eee;
+}
+
+input:focus {
+	background: white;
+	box-shadow: .1em .1em .3em silver inset, 0 0 0 1px #eee inset;
+	outline: none;
+}
+
+button {
+	padding: .3em .6em;
+	border: 1px solid;
+	background: white;
+	border-radius: .3em;
+	color: #007afb;
+	cursor: pointer;
+}
+
+	button:hover {
+		background: #007afb;
+		color: white;
+		border-color: transparent;
+	}
+	
+a {
+	color: inherit;
+}
+
+	a:hover {
+		color: #007afb;
+	}
+
+.search {
+	margin-top: 1em;
+	display: flex;
+	font-size: 120%;
+}
+
+	.search input {
+		-webkit-appearance: none;
+		appearance: none;
+		flex: 100%;
+		padding: .3em .6em;
+		border-radius: 2em .2em .2em 2em;
+	}
+	
+	.search button {
+		flex: 5em;
+		margin-left: .3em;
+		border-radius: .2em 2em 2em .2em;
+	}
+	
+	.search button:not(:hover) {
+		color: #4bd963;
+	}
+	
+		.search button:hover {
+			background: #4bd963;
+		}
+		
+footer {
+	margin-top: 3rem;
+	font-size: 80%;
+	text-align: center;
+	color: #888;
+}
+		
+#demo {
+	text-align: center;
+}
