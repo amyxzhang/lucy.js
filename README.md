@@ -1,4 +1,4 @@
 Lucy.js
 ======
 
-Adds full-text capabilities to indexedDB.
+Adds full-text search capabilities to indexedDB.
