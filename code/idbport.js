@@ -39,7 +39,6 @@ indexedDB.import = function (database, src, callback) {
 								if ((i+1) % ~~(count/10) === 0 && count > 100) {
 									// For large datasets, offer feedback every 10% of imported data
 									ret.onstatusupdate("Loading data in " + id + " (" + (i+1) + " of " + count + ")…");
-									console.log(o);
 								}
 								
 								try { 
