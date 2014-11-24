@@ -1,4 +1,11 @@
-indexedDB.import = function (database, src) {
+indexedDB.import = function (database, src, callback) {
+	var ret = {
+		// Caller will override these if needed
+		onstatusupdate: function(){},
+		onsuccess: function(){},
+		onerror: function(){}
+	};
+
 	// Get file first
 	var xhr = new XMLHttpRequest(src);
 	
@@ -6,21 +13,35 @@ indexedDB.import = function (database, src) {
 	
 	xhr.onreadystatechange = function () {
 		if (xhr.readyState == 4 && xhr.status < 400) {
+			ret.onstatusupdate("Loaded JSON file");
+			
 			var data = JSON.parse(xhr.responseText);
 			
-			// Data should be an object with object store names -> arrays with values
+			ret.onstatusupdate("Parsed JSON file");
+			
+			// Data should be an object with object store names as keys and arrays as values.
+			// A special __meta key at the root level defines keypaths, autoincrement behavior etc for every object store
 			self.db = undefined;
 			
 			indexedDB.deleteDatabase(database).onsuccess = function(evt) {
-				
 				var DBOpenRequest = indexedDB.open(database);
 				
 				DBOpenRequest.onsuccess = function (evt) {
 					Object.keys(data).forEach(function(id) {
 						if (id != "__meta") {
+							var count = data[id].length;
+							
+							ret.onstatusupdate("Loading data in " + id + " (" + count + " objects total)…");
+							
 							var transaction = db.transaction(id, "readwrite").objectStore(id);
 							
-							data[id].forEach(function(o) {
+							data[id].forEach(function(o, i) {
+								if ((i+1) % ~~(count/10) === 0 && count > 100) {
+									// For large datasets, offer feedback every 10% of imported data
+									ret.onstatusupdate("Loading data in " + id + " (" + (i+1) + " of " + count + ")…");
+									console.log(o);
+								}
+								
 								try { 
 									transaction.add(o);
 								}
@@ -28,22 +49,31 @@ indexedDB.import = function (database, src) {
 									console.error(e, o);
 								}
 							});
+							
+							ret.onstatusupdate("Loaded data in " + id + ".");
 						}
 					});
+					
+					ret.onsuccess();
 				};
 				
 				DBOpenRequest.onupgradeneeded = function (evt) {
 					db = this.result;
-					console.log("DBOpenRequest.onupgradeneeded", db);
+					ret.onstatusupdate("Creating object stores…");
+					
 					Object.keys(data).forEach(function(id) {
 						if (id != "__meta") {
 							db.createObjectStore(id, data['__meta'][id]);
 						}
 					});
+					
+					ret.onstatusupdate("Created object stores.");
 				};
 			};
 		}
 	};
 	
 	xhr.send();
+	
+	return ret;
 };

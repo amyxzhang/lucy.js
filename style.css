@@ -67,6 +67,33 @@ a {
 	a:hover {
 		color: #007afb;
 	}
+	
+.loading-status:empty {
+	display: none;
+}
+
+	@-webkit-keyframes spin {
+		 to { transform: rotate(1turn); }
+	}
+	
+	@keyframes spin {
+		 to { transform: rotate(1turn); }
+	}
+
+	.loading-status::before {
+		content: '';
+		display: inline-block;
+		vertical-align: -.1em;
+		width: 1em;
+		height: 1em;
+		border: 0 solid hsl(330, 100%,28%);
+		border-left-width: .2em;
+		border-radius: .5em;
+		margin-right: .3em;
+		
+		-webkit-animation: spin 1s infinite linear;
+		animation: spin .5s infinite linear;
+	}
 
 .search {
 	margin-top: 1em;
