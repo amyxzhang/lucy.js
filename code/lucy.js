@@ -75,7 +75,8 @@
         }
     };
 
-    // Index builder methods
+    // Index builder methods that do any necessary pre-processing
+    // of data before calling index object constructors.
 
     /*
     Creates a prefix tree index for pattern-matching.
@@ -87,7 +88,7 @@
     };
 
     /*
-    Builds a suffix tree index for pattern-matching.
+    Builds a suffix tree index for pattern-matching by inserting reversed strings into prefix tree
     name - str name of the index to be created
     returns TrieIndex object
     */
