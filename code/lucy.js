@@ -50,10 +50,24 @@
     Return index associated with this field
     Raise DOMException with type DataError if key invalid
     */  
-    IDBObjectStore.prototype.index = function(field) {
+    IDBObjectStore.prototype.index = function(field, optionalArgs) {
+    	console.log(this.fieldToIndex);
+    	console.log(this.textSearchIndexes);
+    	
     	if (field in this.fieldToIndex) {
-    		var indexName = this.fieldToIndex[field];
-    		return this.textSearchIndexes[indexName];
+    		if (optionalArgs && optionalArgs["transaction"]) {
+    			var indexName = this.fieldToIndex[field];
+    		
+    			var invindex = this.textSearchIndexes[indexName];
+    			invindex.objectStore = this;
+    			
+    			var transaction = optionalArgs["transaction"];
+    			console.log(transaction);
+    			invindex.index = transaction.objectStore(indexName);
+    			console.log(invindex);
+    			return invindex;
+    		}
+
     	}
         return _index.apply(this, arguments);
     };
@@ -131,7 +145,7 @@
     returns InvertedIndex object
     */
     var buildInvertedIndex = function(objStore, name, field, dbconn) {
-    	var invIndex = InvIndex.apply(this, arguments);
+    	var invIndex = new InvIndex(objStore, name, field, dbconn);
     	objStore.textSearchIndexes[name] = invIndex;
     	objStore.fieldToIndex[field] = name;
 		return invIndex;

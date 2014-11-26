@@ -80,10 +80,10 @@ $("#submit-search").onclick = function () {
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 	DBOpenRequest.onsuccess = function(evt) {
 		var db = event.target.result;
-		var transaction = db.transaction(["tweets"], "readonly");
+		var transaction = db.transaction(["tweets", "tweet_text"], "readonly");
 		var objectStore = transaction.objectStore("tweets");
 		
-		var index = objectStore.index("text");
+		var index = objectStore.index("text", {transaction: transaction});
 		
 		//get returns a single entry (one with lowest key value)
 		var request = index.get(searchQuery);
