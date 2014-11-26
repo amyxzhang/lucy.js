@@ -54,6 +54,8 @@ indexedDB.import = function (database, src, callback) {
 					});
 					
 					ret.onsuccess();
+					
+					evt.target.result.close();
 				};
 				
 				DBOpenRequest.onupgradeneeded = function (evt) {

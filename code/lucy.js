@@ -1,4 +1,17 @@
+
+/*
+ * Lucy.js
+ * 
+ */
+
+// Imported objectStores
+ImportedObjectStores = {};
+
+// Store mapping between objectStore and indexed field
+IndexedFields = {};
+
 (function() {
+	
     // Store mapping between index name and index objects
     IDBObjectStore.prototype.textSearchIndexes = {};
 
@@ -8,7 +21,7 @@
     var _delete = IDBObjectStore.prototype.delete;
     
     /*
-    Intercept add  
+    Intercept put  
     Insert/update item into all indexes in this.textSearchIndexes
     Raise DOMException with type DataError if key invalid
     */  
@@ -54,9 +67,13 @@
         if (indexName in this.textSearchIndexes) {
             // ConstraintError
         }
-        if (optionalArgs && optionalArgs["type"]) {
+        if (optionalArgs && optionalArgs["type"] && optionalArgs["dbconn"]) {
             // build the appropriate index using the builder functions below
             // add new index to this.textSearchIndexes
+            var dbconn = optionalArgs["dbconn"];
+            if (optionalArgs["type"] == "inverted") {
+            	return buildInvertedIndex(this, indexName, keypath, dbconn);
+            }
         } else {
             return _createIndex.apply(this, arguments);
         }
@@ -101,8 +118,9 @@
     name - str name of the index to be created
     returns InvertedIndex object
     */
-    var buildInvertedIndex = function(name) {
-        return null;
+    var buildInvertedIndex = function(objStore, name, field, dbconn) {
+    	var invIndex = InvIndex.apply(this, arguments);
+		return invIndex;
     };
 
     /*

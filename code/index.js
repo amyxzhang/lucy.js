@@ -1,18 +1,3 @@
-/*
-Constructs an InvertedIndex for full-text search.
-data - array of strings to be indexed
-*/
-var InvertedIndex = function(data) {
-    // Perform index search for a tokenized word
-    this.get = function(word) {
-        return null;
-    };
-
-    // Tokenize and normalize data before insertion.
-    this.insert = function(text) {};
-
-    return this;
-};
 
 /*
 Constructs a TrieIndex for pattern-matching.
