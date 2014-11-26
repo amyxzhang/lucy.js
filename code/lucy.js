@@ -4,21 +4,19 @@
  * 
  */
 
-// Imported objectStores
-ImportedObjectStores = {};
-
-// Store mapping between objectStore and indexed field
-IndexedFields = {};
-
 (function() {
 	
     // Store mapping between index name and index objects
     IDBObjectStore.prototype.textSearchIndexes = {};
+    
+    // Store mapping between obj field and index name
+    IDBObjectStore.prototype.fieldToIndex = {};
 
     // Intercept insertion/update/delete methods
     var _put = IDBObjectStore.prototype.put;
     var _add = IDBObjectStore.prototype.add;
     var _delete = IDBObjectStore.prototype.delete;
+    var _index = IDBObjectStore.prototype.index;
     
     /*
     Intercept put  
@@ -46,6 +44,20 @@ IndexedFields = {};
     IDBObjectStore.prototype.delete = function(recordKey) {
         return _delete.apply(this, arguments);
     };
+    
+    /*
+    Intercept index  
+    Return index associated with this field
+    Raise DOMException with type DataError if key invalid
+    */  
+    IDBObjectStore.prototype.index = function(field) {
+    	if (field in this.fieldToIndex) {
+    		var indexName = this.fieldToIndex[field];
+    		return this.textSearchIndexes[indexName];
+    	}
+        return _index.apply(this, arguments);
+    };
+    
 
     // Intercept index creation/deletion
     var _createIndex = IDBObjectStore.prototype.createIndex;
@@ -120,6 +132,8 @@ IndexedFields = {};
     */
     var buildInvertedIndex = function(objStore, name, field, dbconn) {
     	var invIndex = InvIndex.apply(this, arguments);
+    	objStore.textSearchIndexes[name] = invIndex;
+    	objStore.fieldToIndex[field] = name;
 		return invIndex;
     };
 

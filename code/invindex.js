@@ -10,19 +10,23 @@ var InvIndex = function(objStore, name, field, dbconn) {
 	this.name = name;
 	this.unique = false;
 	
-	this.dbconn = dbconn;
 	this.indexField = field;
 	
-	createIndex();
+	createIndex(dbconn);
 	
-    // Perform index search for a tokenized word
+    // Perform index search for a phrase
     this.get = function(word) {
-    	console.log("NEVER HERE");
-        return null;
+    	console.log('here!');
     };
 
     // Tokenize and normalize data before insertion.
-    this.insert = function(text) {};
+    this.insert = function(text) {
+    	var tokenCount = basictokenize(text);
+				
+		for (var token in tokenCount) {
+			indexToken(id, token, tokenCount[token]);
+		}
+    };
 
     return this;
     
@@ -43,7 +47,6 @@ var InvIndex = function(objStore, name, field, dbconn) {
 	}
 	
 	function indexToken(id, token, count) {	
-		
 		var getter = index.get(token);
 		getter.onsuccess = function(evt) {
 			var cursor = getter.result;
@@ -59,7 +62,6 @@ var InvIndex = function(objStore, name, field, dbconn) {
 				var ids = [];
 				ids.push(id);
 				var insert_obj = {"token": token, "ids": ids};
-				console.log(insert_obj);
 				var insertion = index.add(insert_obj);
 				insertion.onerror = function(evt) {
 					console.log(evt, insert_obj);
@@ -72,13 +74,15 @@ var InvIndex = function(objStore, name, field, dbconn) {
 		};
 	}
     
-    function createIndex() {
+    function createIndex(dbconn) {
     	
     	//create inverted index for field
     	this.index = dbconn.createObjectStore(name, { keyPath: "token" });
+    	console.log("Created Index object store");
 
     	var keyval = objectStore.keyPath;
     	
+    	console.log("Iterating through " + objectStore.name + " entries...");
     	//iterate through objectstore
     	var opencursor = objectStore.openCursor();
 		opencursor.onsuccess = function (evt) {
@@ -95,7 +99,7 @@ var InvIndex = function(objStore, name, field, dbconn) {
 
 				cursor.continue();
 			} else {
-				console.log("All entries displayed");
+				console.log("All entries indexed.");
 			}
 		};
 		
