@@ -49,7 +49,7 @@ $('#import-data').onclick = function () {
 	};	
 };
 
-$('#build-index').onclick = function () {
+$('#build-inv-index').onclick = function () {
 	var loadingStatus = $('.loading-status');
 	
 	incrementDBVersion();
@@ -63,6 +63,52 @@ $('#build-index').onclick = function () {
 		
 		// field to create index on
 		objectStore.createIndex("tweet_text", "text", {type: "inverted", dbconn: evt.target.result});
+	};
+	
+	DBOpenRequest.onsuccess = function(evt) {
+		evt.target.result.close();
+		console.log('Finished creating index.');
+	};
+
+};
+
+$('#build-prefix-index').onclick = function () {
+	var loadingStatus = $('.loading-status');
+	
+	incrementDBVersion();
+	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
+
+	DBOpenRequest.onupgradeneeded = function(evt) {
+		var transaction = evt.target.transaction;
+		
+		// table to create index on
+		var objectStore = transaction.objectStore("tweets");
+		
+		// field to create index on
+		objectStore.createIndex("tweet_text", "text", {type: "prefix", dbconn: evt.target.result});
+	};
+	
+	DBOpenRequest.onsuccess = function(evt) {
+		evt.target.result.close();
+		console.log('Finished creating index.');
+	};
+
+};
+
+$('#build-suffix-index').onclick = function () {
+	var loadingStatus = $('.loading-status');
+	
+	incrementDBVersion();
+	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
+
+	DBOpenRequest.onupgradeneeded = function(evt) {
+		var transaction = evt.target.transaction;
+		
+		// table to create index on
+		var objectStore = transaction.objectStore("tweets");
+		
+		// field to create index on
+		objectStore.createIndex("tweet_text", "text", {type: "suffix", dbconn: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {

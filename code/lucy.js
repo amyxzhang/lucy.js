@@ -58,14 +58,14 @@
     		if (optionalArgs && optionalArgs["transaction"]) {
     			var indexName = this.fieldToIndex[field];
     		
-    			var invindex = this.textSearchIndexes[indexName];
-    			invindex.objectStore = this;
+    			var textIndex = this.textSearchIndexes[indexName];
+    			textIndex.objectStore = this;
     			
     			var transaction = optionalArgs["transaction"];
     			console.log(transaction);
-    			invindex.index = transaction.objectStore(indexName);
-    			console.log(invindex);
-    			return invindex;
+    			textIndex.index = transaction.objectStore(indexName);
+    			console.log(textIndex);
+    			return textIndex;
     		}
 
     	}
