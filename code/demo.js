@@ -85,7 +85,7 @@ $('#build-prefix-index').onclick = function () {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweet_text", "text", {type: "prefix", dbconn: evt.target.result});
+		objectStore.createIndex("tweet_text_prefix", "text", {type: "prefix", dbconn: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
@@ -108,7 +108,7 @@ $('#build-suffix-index').onclick = function () {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweet_text", "text", {type: "suffix", dbconn: evt.target.result});
+		objectStore.createIndex("tweet_text_suffix", "text", {type: "suffix", dbconn: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
