@@ -99,6 +99,10 @@
             var dbconn = optionalArgs["dbconn"];
             if (optionalArgs["type"] == "inverted") {
             	return buildInvertedIndex(this, indexName, keypath, dbconn);
+            } else if (optionalArgs["type"] == "prefix") {
+                return buildPrefixIndex(this, indexName, keypath, dbconn);
+            } else if (optionalArgs["type"] == "suffix") {
+                return buildSuffixIndex(this, indexName, keypath, dbconn);
             }
         } else {
             return _createIndex.apply(this, arguments);
@@ -126,8 +130,11 @@
     name - str name of the index to be created (stored in textSearchIndexes)
     returns TrieIndex object
     */
-    var buildPrefixTree = function(name) {
-        return null;
+    var buildPrefixIndex = function(objStore, name, field, dbconn) {
+        var prefixIndex = new TrieIndex(objStore, name, field, "prefix", dbconn);
+    	objStore.textSearchIndexes[name] = prefixIndex;
+    	objStore.fieldToIndex[field] = name;
+		return prefixIndex;
     };
 
     /*
@@ -135,8 +142,11 @@
     name - str name of the index to be created
     returns TrieIndex object
     */
-    var buildSuffixTree = function(name) {
-        return null;
+    var buildSuffixIndex = function(objStore, name, field, dbconn) {
+        var suffixIndex = new TrieIndex(objStore, name, field, "suffix", dbconn);
+    	objStore.textSearchIndexes[name] = suffixIndex;
+    	objStore.fieldToIndex[field] = name;
+		return suffixIndex;
     };
 
     /*

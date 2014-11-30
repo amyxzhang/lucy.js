@@ -1,7 +1,6 @@
 
 /*
-Constructs an InvertedIndex for full-text search.
-data - array of strings to be indexed
+Constructs an InvIndex for full-text search.
 */
 
 var InvIndex = function(objStore, name, field, dbconn) {
