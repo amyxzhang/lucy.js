@@ -4,6 +4,18 @@
  * 
  */
 
+/*
+ * Extends IDBRequest
+ * 
+ */
+var IDBIndexRequest = function(objStore, transaction) {
+	onsuccess = function(){};
+	onerror = function(){};
+	source = objStore;
+	transaction = transaction;
+};
+
+
 (function() {
 	
     // Store mapping between index name and index objects
