@@ -4,17 +4,50 @@
  * 
  */
 
+
+/*
+ * Static class for general purpose natural language processing functions 
+ * 
+ */
+function Lucy() {};
+
+Lucy.tokenize = function(string) { 
+	string = string.toLowerCase();
+	var tokens = string.match(/\w+/g);
+	
+	var tokenCount = {};
+	for (var i=0; i<tokens.length; i++) {
+		if (tokens[i] in tokenCount) {
+			tokenCount[tokens[i]]++;
+		} else {
+			tokenCount[tokens[i]] = 1;
+		}
+	}
+	
+	return tokenCount;
+};
+
+
+
+
 /*
  * Extends IDBRequest
  * 
  */
 var IDBIndexRequest = function(objStore, transaction) {
-	onsuccess = function(){};
-	onerror = function(){};
-	source = objStore;
-	transaction = transaction;
+	this.onsuccess = function(){};
+	this.onerror = function(){};
+	this.source = objStore;
+	this.transaction = transaction;
 };
 
+IDBIndexRequest.prototype = IDBRequest;
+
+
+
+/*
+ * Intercept functions of IDBObjectStore
+ */
 
 (function() {
 	

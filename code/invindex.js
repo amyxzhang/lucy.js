@@ -17,11 +17,10 @@ var InvIndex = function(objStore, name, field, dbconn) {
     // Perform index search for a phrase
     this.get = function(text) {
     	var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-
     	var result_id;
     	var objStore = this.objectStore;
     	
-    	var tokenCount = basictokenize(text);
+    	var tokenCount = Lucy.tokenize(text);
     	for (var token in tokenCount) {
     		var request = this.index.get(token);
     		request.onerror = function(evt) {
@@ -53,34 +52,17 @@ var InvIndex = function(objStore, name, field, dbconn) {
    				
     		};
     	}
-    	
     	return ret;
     };
 
     // Tokenize and normalize data before insertion.
     this.insert = function(text) {
-    	var tokenCount = basictokenize(text);
+    	var tokenCount = Lucy.tokenize(text);
 				
 		for (var token in tokenCount) {
 			indexToken(id, token, tokenCount[token]);
 		}
     };
-    
-	function basictokenize(s) {
-		s = s.toLowerCase();
-		var tokens = s.match(/\w+/g);
-		
-		var tokenCount = {};
-		for (var i=0; i<tokens.length; i++) {
-			if (tokens[i] in tokenCount) {
-				tokenCount[tokens[i]]++;
-			} else {
-				tokenCount[tokens[i]] = 1;
-			}
-		}
-		
-		return tokenCount;
-	}
 	
 	function indexToken(invindex, id, token, count) {	
 		var getter = invindex.index.get(token);
@@ -127,7 +109,7 @@ var InvIndex = function(objStore, name, field, dbconn) {
 				var value = cursor.value[invindex.indexField];
 				var id = cursor.value[keyval];
 				//tokenize string
-				var tokenCount = basictokenize(value);
+				var tokenCount = Lucy.tokenize(value);
 				
 				for (var token in tokenCount) {
 					indexToken(invindex, id, token, tokenCount[token]);
