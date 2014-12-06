@@ -3,6 +3,7 @@
 Constructs an InvIndex for full-text search.
 */
 
+
 var InvIndex = function(objStore, name, field, dbconn, language) {
 
 	this.objectStore = objStore;
@@ -23,20 +24,40 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
     	
     	var tokenCount = Lucy.tokenize(text);
     	
-    	ret.result = [];
-		var counter = 0;
+    	var result_dict = {};
+    	
+    	var finish_counter = {count: 0};
+    	for (var token in tokenCount.tokens) {
+    		finish_counter[token] = undefined;
+    		finish_counter.count++;
+    	}
+    	
+		var check_done = function() {
+			if (finish_counter.count == 0) return true;
+			for (var vals in finish_counter) {
+				if (finish_counter[vals] != 0) {
+					return false;
+				}
+			}
+			return true;
+		};
+
     	for (var token in tokenCount.tokens) {
     		var request = this.index.get(token);
-    		counter++;
-    		
+    		var weight = tokenCount.tokens[token];
     		request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.result = evt.result;
     			ret.onerror();
     		};
     		request.onsuccess = function(evt) {
-				if (request.result) {
-					var result_ids = request.result.ids;
+    			finish_counter.count--;
+				if (evt.srcElement.result) {
+					var curr_token = evt.srcElement.result.token;
+					var result_ids = evt.srcElement.result.ids;
+					
+					finish_counter[curr_token] = result_ids.length;
+					
 					for (var j=0; j<result_ids.length; j++) {
 	    				var request_text = objStore.get(result_ids[j]);
 		    			request_text.onerror = function(evt) {
@@ -44,16 +65,25 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 			    			ret.onerror();
 			    		};
 		    			request_text.onsuccess = function(evt) {
-		    				if (evt.srcElement.result){
-		    					ret.result.push(evt.srcElement.result);
+		    				finish_counter[curr_token]--;
+		    				var result = evt.srcElement.result;
+		    				if (result){
+		    					if (result.id in result_dict) {
+		    						result_dict[result.id].score += weight;
+		    					} else {
+			    					result_dict[result.id] = result;
+			    					result_dict[result.id].score = weight;
+			    				}
 		    				}
-		    				if (counter == tokenCount.length && j == result_ids.length) {
+		    				if (check_done()) {
+		    					ret.result = Lucy.convert_dict(result_dict);
 								ret.onsuccess();
 							}
 		    			};
 	    			}
 				} else {
-					if (counter == tokenCount.length) {
+					if (check_done()) {
+						ret.result = Lucy.convert_dict(result_dict);
 						ret.onsuccess();
 					}
 				}

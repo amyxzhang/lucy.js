@@ -21,6 +21,8 @@ var SUPPORTED_LANGUAGES = ['english',
 						   'romanian',
 						   'turkish'];
 
+
+
 /*
  * Static class for general purpose natural language processing functions 
  * 
@@ -83,6 +85,19 @@ Lucy.stemmer = function(language) {
 	};
 };
 
+// convert dictionary to ordered list, reverse score
+Lucy.convert_dict = function(dict) {
+	function comparator(a, b) {
+		return b.score - a.score;
+	}
+	
+	var olist = [];
+	for (var item in dict) {
+		olist.push(dict[item]);
+	}
+	olist.sort(comparator);
+	return olist;
+};
 
 
 /*
@@ -94,6 +109,7 @@ var IDBIndexRequest = function(objStore, transaction) {
 	this.onerror = function(){};
 	this.source = objStore;
 	this.transaction = transaction;
+	this.result = undefined;
 };
 
 IDBIndexRequest.prototype = IDBRequest;
@@ -151,8 +167,6 @@ IDBIndexRequest.prototype = IDBRequest;
     Raise DOMException with type DataError if key invalid
     */  
     IDBObjectStore.prototype.index = function(field, optionalArgs) {
-    	console.log(this.fieldToIndex);
-    	console.log(this.textSearchIndexes);
     	
     	if (field in this.fieldToIndex) {
 			var indexName = this.fieldToIndex[field];
@@ -161,10 +175,8 @@ IDBIndexRequest.prototype = IDBRequest;
 			textIndex.objectStore = this;
 			
 			var transaction = this.transaction;
-			console.log(transaction);
 			textIndex.index = transaction.objectStore(indexName);
 			textIndex.transaction = transaction;
-			console.log(textIndex);
 			return textIndex;
     	}
         return _index.apply(this, arguments);
