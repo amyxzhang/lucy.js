@@ -15,29 +15,28 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     // Perform prefix search
     // Return list of document objects with matches
     this.get = function(text) {
-        if (this.mode == "suffix") {
+        /////
+        console.log(this);
+        var requestText = this.store.get(0);
+        requestText.onerror = function(evt) {
+            console.log(evt, text);
+            return evt;
+        };
+        requestText.onsuccess = function(evt) {
+            console.log(requestText);
+            if (evt.target.result){
+                console.log('FOUND IT');
+            }
+        };
+        return {};
+        //////
+        /*if (this.mode == "suffix") {
             text = reverse(text);
         }
-        var docIds;
-    	var objStore = this.objectStore;
-    	
-        var parentId = 0;
-    	for (var i=0; i<text.length; i++) {
-            var c = text.charAt(i);
-    		var request = this.index.get([parentId, c]);
-    		request.onerror = function(evt) {
-    			console.log(evt, text);
-    			return evt;
-    		};
-    		request.onsuccess = function(evt) {
-                if (evt.target.result) {
-                    docIds = evt.target.result.docIds;
-                    console.log(docIds);
-                } else {
-                    return [];
-                }
-            };
-        }
+        var objStore = this.objectStore;
+        var docIds = [];
+        searchHelper(this, docIds, text, 0);
+
         var results = [];
         for (var i=0; i<docIds.length; i++) {
             docId = docIds[i];
@@ -54,8 +53,34 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                 }
             };
         }
-        return results;
+        return results;*/
     };
+
+    function searchHelper(trieindex, docIds, token, parentId) {
+        console.log("token:", token, "parentId:", parentId);
+        if (token.length == 0)
+            return;
+        var c = token.charAt(0);
+        var request = trieindex.parentCharIndex.get([0, 'w']);
+        (function(trieindex, token, parentId) {
+            request.onsuccess = function(evt) {
+                console.log(evt);
+                if (evt.target.result) {
+                    if (token.length == 1) {
+                        result = evt.target.result;
+                        console.log(result.docIds);
+                        docIds.push.apply(docIds, result.docIds);
+                    } else {
+                        searchHelper(trieindex, docIds, token.substring(1), result.id);
+                    }
+                }
+            };
+            request.onerror = function(evt) {
+    			console.log(evt, token);
+    			return evt;
+    		};
+        })(trieindex, docIds, token, parentId);
+    }
 
     var reverse = function(text) {
         return text.split("").reverse().join("");
@@ -96,14 +121,15 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         if (token.length == 0)
             return;
         var c = token.charAt(0);
-        var getter = trieindex.index.get([parentId, c]);
+        var getter = trieindex.parentCharIndex.get([parentId, c]);
         (function(trieindex, docId, token, parentId) {
             getter.onsuccess = function(evt) {
                 var cursor = evt.target.result;
                 if (cursor) {
                     var update_obj = cursor;
                     var docIds = update_obj.docIds;
-                    docIds.push(docId);
+                    if (!(docId in docIds))
+                        docIds.push(docId);
                     var insertion = trieindex.store.put(update_obj);
                     insertion.onerror = function(evt) {
                         console.log(evt, update_obj);
@@ -114,7 +140,8 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                 } else {
                     var docIds = [];
                     docIds.push(docId);
-                    var insert_obj = {"parentId": parentId, "char": c, "docIds": docIds};
+                    //var insert_obj = {"parentId": parentId, "char": c, "docIds": docIds};
+                    var insert_obj = {"parent_char": [parentId, c], "docIds": docIds};
                     var insertion = trieindex.store.add(insert_obj);
                     insertion.onerror = function(evt) {
                         console.log(evt, insert_obj);
@@ -137,14 +164,21 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     	console.log("Created Index object store");
 
         // create index on the object store
-        trieindex.index = trieindex.store.createIndex(name, ["parentId", "char"], { unique:true });
+        //trieindex.parentCharIndex = trieindex.store.createIndex(name, ["parentId", "char"], { unique:true });
+        trieindex.parentCharIndex = trieindex.store.createIndex(name, "parent_char", { unique:true, multiEntry:false });
         console.log("Created index for trie");
-        var root_node = {"id": 0, "parentId": -1, "char": '', "docIds": []};
+        //var root_node = {"id": 0, "parentId": -1, "char": '', "docIds": []};
+        var root_node = {"id": 0, "parent_char": [-1, ''], "docIds": []};
         var insertion = trieindex.store.add(root_node);
         insertion.onerror = function(evt) {
             console.log("Failed to insert root node", evt, root_node);
         };
-
+        
+        
+       
+        
+        
+        
     	var keyval = trieindex.objectStore.keyPath;
     	
     	console.log("Iterating through " + trieindex.objectStore.name + " entries...");
@@ -164,8 +198,25 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 				cursor.continue();
 			} else {
 				console.log("All entries indexed.");
+                
+                 /////
+                console.log(trieindex.parentCharIndex);
+                var requestText = trieindex.parentCharIndex.get([0, 'w']);
+                requestText.onerror = function(evt) {
+                    console.log(evt, text);
+                    return evt;
+                };
+                requestText.onsuccess = function(evt) {
+                    console.log(requestText);
+                    if (evt.target.result){
+                        console.log('FOUND IT');
+                    }
+                };
+                //////
+        
 			}
 		};
+        
 		
 		opencursor.onerror = function (evt) {
 			console.log(evt);
