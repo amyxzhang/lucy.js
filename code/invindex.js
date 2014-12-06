@@ -3,13 +3,15 @@
 Constructs an InvIndex for full-text search.
 */
 
-var InvIndex = function(objStore, name, field, dbconn) {
+
+var InvIndex = function(objStore, name, field, dbconn, language) {
 
 	this.objectStore = objStore;
 	this.name = name;
 	this.unique = false;
 	this.transaction = objStore.transaction;
 	
+	this.language = language;
 	this.indexField = field;
 	
 	createIndex(this, dbconn);
@@ -17,70 +19,88 @@ var InvIndex = function(objStore, name, field, dbconn) {
     // Perform index search for a phrase
     this.get = function(text) {
     	var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-
-    	var result_id;
+    	var result_ids;
     	var objStore = this.objectStore;
     	
-    	var tokenCount = basictokenize(text);
-    	for (var token in tokenCount) {
+    	var tokenCount = Lucy.tokenize(text);
+    	
+    	var result_dict = {};
+    	
+    	var finish_counter = {count: 0};
+    	for (var token in tokenCount.tokens) {
+    		finish_counter[token] = undefined;
+    		finish_counter.count++;
+    	}
+    	
+		var check_done = function() {
+			if (finish_counter.count == 0) return true;
+			for (var vals in finish_counter) {
+				if (finish_counter[vals] != 0) {
+					return false;
+				}
+			}
+			return true;
+		};
+
+    	for (var token in tokenCount.tokens) {
     		var request = this.index.get(token);
+    		var weight = tokenCount.tokens[token];
     		request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.result = evt.result;
+    			ret.onerror();
     		};
     		request.onsuccess = function(evt) {
-    			var result = request.result.ids;
-    			console.log(result);
-    			for (var i=0; i<result.length; i++) {
-    				result_id = result[i];
-    			}
-   				
-   				var request_text = objStore.get(result_id);
-   				request_text.onerror = function(evt) {
-    				console.log(evt, token);
-    				return evt;
-    			};
-    			request_text.onsuccess = function(evt) {
-    				console.log(request_text);
-    				if (request_text.result){
-    					ret.result = request_text.result;
-    					ret.onsuccess();
-    				} else {
-    					ret.result = evt;
-    				}
-    			};
-    			
-   				
+    			finish_counter.count--;
+				if (evt.srcElement.result) {
+					var curr_token = evt.srcElement.result.token;
+					var result_ids = evt.srcElement.result.ids;
+					
+					finish_counter[curr_token] = result_ids.length;
+					
+					for (var j=0; j<result_ids.length; j++) {
+	    				var request_text = objStore.get(result_ids[j]);
+		    			request_text.onerror = function(evt) {
+			    			console.log(evt, token);
+			    			ret.onerror();
+			    		};
+		    			request_text.onsuccess = function(evt) {
+		    				finish_counter[curr_token]--;
+		    				var result = evt.srcElement.result;
+		    				if (result){
+		    					if (result.id in result_dict) {
+		    						result_dict[result.id].score += weight;
+		    					} else {
+			    					result_dict[result.id] = result;
+			    					result_dict[result.id].score = weight;
+			    				}
+		    				}
+		    				if (check_done()) {
+		    					ret.result = Lucy.convert_dict(result_dict);
+								ret.onsuccess();
+							}
+		    			};
+	    			}
+				} else {
+					if (check_done()) {
+						ret.result = Lucy.convert_dict(result_dict);
+						ret.onsuccess();
+					}
+				}
     		};
     	}
-    	
     	return ret;
     };
 
     // Tokenize and normalize data before insertion.
     this.insert = function(text) {
-    	var tokenCount = basictokenize(text);
-				
-		for (var token in tokenCount) {
+    	var tokenCount = Lucy.tokenize(text);
+		var tokens = tokenCount.tokens;
+		
+		for (var token in tokens) {
 			indexToken(id, token, tokenCount[token]);
 		}
     };
-    
-	function basictokenize(s) {
-		s = s.toLowerCase();
-		var tokens = s.match(/\w+/g);
-		
-		var tokenCount = {};
-		for (var i=0; i<tokens.length; i++) {
-			if (tokens[i] in tokenCount) {
-				tokenCount[tokens[i]]++;
-			} else {
-				tokenCount[tokens[i]] = 1;
-			}
-		}
-		
-		return tokenCount;
-	}
 	
 	function indexToken(invindex, id, token, count) {	
 		var getter = invindex.index.get(token);
@@ -127,9 +147,10 @@ var InvIndex = function(objStore, name, field, dbconn) {
 				var value = cursor.value[invindex.indexField];
 				var id = cursor.value[keyval];
 				//tokenize string
-				var tokenCount = basictokenize(value);
+				var tokenCount = Lucy.tokenize(value);
 				
-				for (var token in tokenCount) {
+				var tokens = tokenCount.tokens;
+				for (var token in tokens) {
 					indexToken(invindex, id, token, tokenCount[token]);
 				}
 

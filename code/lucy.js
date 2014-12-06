@@ -4,17 +4,121 @@
  * 
  */
 
+
+var SUPPORTED_LANGUAGES = ['english',
+						   'danish',
+						   'dutch',
+						   'finnish',
+						   'french',
+						   'german',
+						   'hungarian',
+						   'italian',
+						   'norwegian',
+						   'portuguese',
+						   'russian',
+						   'spanish',
+						   'swedish',
+						   'romanian',
+						   'turkish'];
+
+
+
+/*
+ * Static class for general purpose natural language processing functions 
+ * 
+ */
+
+function Lucy() {};
+
+Lucy.language = "english";
+
+Lucy.tokenize = function(string) { 
+	string = string.toLowerCase();
+	var tokens = string.match(/\w+/g);
+	
+	var tokenCount = {length: 0,
+					  tokens: {}};
+					  
+	var stopwordCount = {length: 0, 
+						 tokens: {}};
+					  
+	for (var i=0; i<tokens.length; i++) {
+		if (!Lucy.isStopWord(tokens[i])) {
+			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
+			if (stem in tokenCount) {
+				tokenCount["tokens"][stem]++;
+			} else {
+				tokenCount["tokens"][stem] = 1;
+			}
+			tokenCount.length++;
+		} else {
+			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
+			if (stem in stopwordCount) {
+				stopwordCount["tokens"][stem]++;
+			} else {
+				stopwordCount["tokens"][stem] = 1;
+			}
+			stopwordCount.length++;
+		}
+	}
+	if (tokenCount.length == 0) {
+		return stopwordCount;
+	} else {
+		return tokenCount;
+	}
+};
+
+Lucy.isStopWord = function(word) {
+	if(Lucy.stopwords.indexOf(word) <= 0) {
+		return false;
+	} else {
+		return true;	
+	}
+};
+
+Lucy.stemmer = function(language) {
+	var snowball = new Snowball(language);
+	return function(word) {
+		snowball.setCurrent(word);
+		snowball.stem();
+		return snowball.getCurrent();
+	};
+};
+
+// convert dictionary to ordered list, reverse score
+Lucy.convert_dict = function(dict) {
+	function comparator(a, b) {
+		return b.score - a.score;
+	}
+	
+	var olist = [];
+	for (var item in dict) {
+		olist.push(dict[item]);
+	}
+	olist.sort(comparator);
+	return olist;
+};
+
+
 /*
  * Extends IDBRequest
  * 
  */
 var IDBIndexRequest = function(objStore, transaction) {
-	onsuccess = function(){};
-	onerror = function(){};
-	source = objStore;
-	transaction = transaction;
+	this.onsuccess = function(){};
+	this.onerror = function(){};
+	this.source = objStore;
+	this.transaction = transaction;
+	this.result = undefined;
 };
 
+IDBIndexRequest.prototype = IDBRequest;
+
+
+
+/*
+ * Intercept functions of IDBObjectStore
+ */
 
 (function() {
 	
@@ -63,8 +167,6 @@ var IDBIndexRequest = function(objStore, transaction) {
     Raise DOMException with type DataError if key invalid
     */  
     IDBObjectStore.prototype.index = function(field, optionalArgs) {
-    	console.log(this.fieldToIndex);
-    	console.log(this.textSearchIndexes);
     	
     	if (field in this.fieldToIndex) {
 			var indexName = this.fieldToIndex[field];
@@ -73,10 +175,8 @@ var IDBIndexRequest = function(objStore, transaction) {
 			textIndex.objectStore = this;
 			
 			var transaction = this.transaction;
-			console.log(transaction);
 			textIndex.index = transaction.objectStore(indexName);
 			textIndex.transaction = transaction;
-			console.log(textIndex);
 			return textIndex;
     	}
         return _index.apply(this, arguments);
@@ -107,8 +207,15 @@ var IDBIndexRequest = function(objStore, transaction) {
             // build the appropriate index using the builder functions below
             // add new index to this.textSearchIndexes
             var dbconn = optionalArgs["dbconn"];
+            var language = optionalArgs["language"];
+            if (!language || (SUPPORTED_LANGUAGES.indexOf(language) <= -1)) {
+            	language = "english";
+            }
+            language = language.toLowerCase();
+            Lucy.language = language;
+            
             if (optionalArgs["type"] == "inverted") {
-            	return buildInvertedIndex(this, indexName, keypath, dbconn);
+            	return buildInvertedIndex(this, indexName, keypath, dbconn, language);
             } else if (optionalArgs["type"] == "prefix") {
                 return buildPrefixIndex(this, indexName, keypath, dbconn);
             } else if (optionalArgs["type"] == "suffix") {
@@ -164,8 +271,8 @@ var IDBIndexRequest = function(objStore, transaction) {
     name - str name of the index to be created
     returns InvertedIndex object
     */
-    var buildInvertedIndex = function(objStore, name, field, dbconn) {
-    	var invIndex = new InvIndex(objStore, name, field, dbconn);
+    var buildInvertedIndex = function(objStore, name, field, dbconn, language) {
+    	var invIndex = new InvIndex(objStore, name, field, dbconn, language);
     	objStore.textSearchIndexes[name] = invIndex;
     	objStore.fieldToIndex[field] = name;
 		return invIndex;
@@ -179,5 +286,5 @@ var IDBIndexRequest = function(objStore, transaction) {
     var buildBTreeIndex = function(name) {
         return null;
     };
-    
+
 })();
