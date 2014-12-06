@@ -133,12 +133,21 @@ $("#submit-search").onclick = function () {
 		
 		//get returns a single entry (one with lowest key value)
 		var request = index.get(searchQuery);
+		console.log(request);
 		request.onerror = function(evt) {
 			console.log(evt, searchQuery);
 		};
 		request.onsuccess = function(evt) {
 			var searchResults = $('.search-results');
-			searchResults.textContent = request.result.text;
+			var result = "";
+			if (request.result.length == 0) {
+				result = "No results";
+			} else {
+				for (var i=0; i<request.result.length; i++) {
+					result = result + "<P>" + request.result[i].text + "</P>";
+				}
+			}
+			searchResults.innerHTML = result;
 		};
 		
 		evt.target.result.close();

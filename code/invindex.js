@@ -18,40 +18,45 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
     // Perform index search for a phrase
     this.get = function(text) {
     	var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-    	var result_id;
+    	var result_ids;
     	var objStore = this.objectStore;
     	
     	var tokenCount = Lucy.tokenize(text);
-    	for (var token in tokenCount) {
-    		var request = this.index.get(token);
-    		request.onerror = function(evt) {
-    			console.log(evt, token);
-    			ret.result = evt.result;
-    		};
-    		request.onsuccess = function(evt) {
-    			var result = request.result.ids;
-    			console.log(result);
-    			for (var i=0; i<result.length; i++) {
-    				result_id = result[i];
-    			}
-   				
-   				var request_text = objStore.get(result_id);
-   				request_text.onerror = function(evt) {
-    				console.log(evt, token);
-    				return evt;
-    			};
-    			request_text.onsuccess = function(evt) {
-    				console.log(request_text);
-    				if (request_text.result){
-    					ret.result = request_text.result;
-    					ret.onsuccess();
-    				} else {
-    					ret.result = evt;
-    				}
-    			};
-    			
-   				
-    		};
+    	
+    	ret.result = [];
+    	if (tokenCount.length == 0) {
+	    	ret.onsuccess();
+    	} else {
+    		var counter = 0;
+	    	for (var token in tokenCount.tokens) {
+	    		var request = this.index.get(token);
+	    		counter++;
+	    		
+	    		request.onerror = function(evt) {
+	    			console.log(evt, token);
+	    			ret.result = evt.result;
+	    			ret.onerror();
+	    		};
+	    		request.onsuccess = function(evt) {
+	    			var result_ids = request.result.ids;
+	
+	    			for (var j=0; j<result_ids.length; j++) {
+	    				var request_text = objStore.get(result_ids[j]);
+		    			request_text.onerror = function(evt) {
+			    			console.log(evt, token);
+			    			ret.onerror();
+			    		};
+		    			request_text.onsuccess = function(evt) {
+		    				if (evt.srcElement.result){
+		    					ret.result.push(evt.srcElement.result);
+		    				}
+		    				if (counter == tokenCount.length && j == result_ids.length) {
+								ret.onsuccess();
+							}
+		    			};
+	    			}
+	    		};
+    		}
     	}
     	return ret;
     };
@@ -59,8 +64,9 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
     // Tokenize and normalize data before insertion.
     this.insert = function(text) {
     	var tokenCount = Lucy.tokenize(text);
-				
-		for (var token in tokenCount) {
+		var tokens = tokenCount.tokens;
+		
+		for (var token in tokens) {
 			indexToken(id, token, tokenCount[token]);
 		}
     };
@@ -112,7 +118,8 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 				//tokenize string
 				var tokenCount = Lucy.tokenize(value);
 				
-				for (var token in tokenCount) {
+				var tokens = tokenCount.tokens;
+				for (var token in tokens) {
 					indexToken(invindex, id, token, tokenCount[token]);
 				}
 

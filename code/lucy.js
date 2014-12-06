@@ -34,15 +34,18 @@ Lucy.tokenize = function(string) {
 	string = string.toLowerCase();
 	var tokens = string.match(/\w+/g);
 	
-	var tokenCount = {};
+	var tokenCount = {length: 0,
+					  tokens: {}};
+					  
 	for (var i=0; i<tokens.length; i++) {
 		if (!Lucy.isStopWord(tokens[i])) {
 			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
 			if (stem in tokenCount) {
-				tokenCount[stem]++;
+				tokenCount["tokens"][stem]++;
 			} else {
-				tokenCount[stem] = 1;
+				tokenCount["tokens"][stem] = 1;
 			}
+			tokenCount.length++;
 		}
 	}
 	
