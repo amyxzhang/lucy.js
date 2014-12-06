@@ -6,6 +6,7 @@ Constructs a TrieIndex for prefix/suffix search.
 var TrieIndex = function(objStore, name, field, mode, dbconn) {
 
 	this.objectStore = objStore;
+    this.transaction = objStore.transaction;
 	this.name = name;
 	this.unique = false;
 	this.indexField = field;
@@ -15,29 +16,15 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     // Perform prefix search
     // Return list of document objects with matches
     this.get = function(text) {
-        /////
-        console.log(this);
-        var requestText = this.store.get(0);
-        requestText.onerror = function(evt) {
-            console.log(evt, text);
-            return evt;
-        };
-        requestText.onsuccess = function(evt) {
-            console.log(requestText);
-            if (evt.target.result){
-                console.log('FOUND IT');
-            }
-        };
-        return {};
-        //////
-        /*if (this.mode == "suffix") {
+        if (this.mode == "suffix") {
             text = reverse(text);
         }
         var objStore = this.objectStore;
+        var trieIndex = this.index.index(this.indexName);
         var docIds = [];
-        searchHelper(this, docIds, text, 0);
+        searchHelper(trieIndex, docIds, text, 0);
 
-        var results = [];
+        /*var results = [];
         for (var i=0; i<docIds.length; i++) {
             docId = docIds[i];
             console.log(docId);
@@ -56,22 +43,22 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         return results;*/
     };
 
-    function searchHelper(trieindex, docIds, token, parentId) {
+    function searchHelper(trieIndex, docIds, token, parentId) {
         console.log("token:", token, "parentId:", parentId);
         if (token.length == 0)
             return;
         var c = token.charAt(0);
-        var request = trieindex.parentCharIndex.get([0, 'w']);
-        (function(trieindex, token, parentId) {
+        var request = trieIndex.get([parentId, c]);
+        (function(trieIndex, docIds, token, parentId) {
             request.onsuccess = function(evt) {
                 console.log(evt);
                 if (evt.target.result) {
+                    var result = evt.target.result;
                     if (token.length == 1) {
-                        result = evt.target.result;
                         console.log(result.docIds);
                         docIds.push.apply(docIds, result.docIds);
                     } else {
-                        searchHelper(trieindex, docIds, token.substring(1), result.id);
+                        searchHelper(trieIndex, docIds, token.substring(1), result.id);
                     }
                 }
             };
@@ -79,7 +66,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     			console.log(evt, token);
     			return evt;
     		};
-        })(trieindex, docIds, token, parentId);
+        })(trieIndex, docIds, token, parentId);
     }
 
     var reverse = function(text) {
@@ -121,7 +108,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         if (token.length == 0)
             return;
         var c = token.charAt(0);
-        var getter = trieindex.parentCharIndex.get([parentId, c]);
+        var getter = trieindex.index.get([parentId, c]);
         (function(trieindex, docId, token, parentId) {
             getter.onsuccess = function(evt) {
                 var cursor = evt.target.result;
@@ -164,8 +151,9 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     	console.log("Created Index object store");
 
         // create index on the object store
-        //trieindex.parentCharIndex = trieindex.store.createIndex(name, ["parentId", "char"], { unique:true });
-        trieindex.parentCharIndex = trieindex.store.createIndex(name, "parent_char", { unique:true, multiEntry:false });
+        //trieindex.index = trieindex.store.createIndex(name, ["parentId", "char"], { unique:true });
+        trieindex.indexName = name + "_index";
+        trieindex.index = trieindex.store.createIndex(trieindex.indexName, "parent_char", { unique:true, multiEntry:false });
         console.log("Created index for trie");
         //var root_node = {"id": 0, "parentId": -1, "char": '', "docIds": []};
         var root_node = {"id": 0, "parent_char": [-1, ''], "docIds": []};
@@ -173,12 +161,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         insertion.onerror = function(evt) {
             console.log("Failed to insert root node", evt, root_node);
         };
-        
-        
-       
-        
-        
-        
+
     	var keyval = trieindex.objectStore.keyPath;
     	
     	console.log("Iterating through " + trieindex.objectStore.name + " entries...");
@@ -197,27 +180,10 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 				}
 				cursor.continue();
 			} else {
-				console.log("All entries indexed.");
-                
-                 /////
-                console.log(trieindex.parentCharIndex);
-                var requestText = trieindex.parentCharIndex.get([0, 'w']);
-                requestText.onerror = function(evt) {
-                    console.log(evt, text);
-                    return evt;
-                };
-                requestText.onsuccess = function(evt) {
-                    console.log(requestText);
-                    if (evt.target.result){
-                        console.log('FOUND IT');
-                    }
-                };
-                //////
-        
+				console.log("All entries indexed.");        
 			}
 		};
         
-		
 		opencursor.onerror = function (evt) {
 			console.log(evt);
 		};
