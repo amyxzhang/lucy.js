@@ -1,35 +1,37 @@
 \begin{thebibliography}{1}
 
-\bibitem{bowman:reasoning}
-M.~Bowman, S.~K. Debray, and L.~L. Peterson.
-\newblock Reasoning about naming systems.
-\newblock {\em ACM Trans. Program. Lang. Syst.}, 15(5):795--825, November 1993.
+\bibitem{balasubramanian2012findall}
+A.~Balasubramanian, N.~Balasubramanian, S.~J. Huston, D.~Metzler, and D.~J.
+  Wetherall.
+\newblock Findall: A local search engine for mobile phones.
+\newblock In {\em Proceedings of the 8th international conference on Emerging
+  networking experiments and technologies}, pages 277--288. ACM, 2012.
 
-\bibitem{braams:babel}
-J.~Braams.
-\newblock Babel, a multilingual style-option system for use with latex's
-  standard document styles.
-\newblock {\em TUGboat}, 12(2):291--301, June 1991.
+\bibitem{benson2010sync}
+E.~Benson, A.~Marcus, D.~Karger, and S.~Madden.
+\newblock Sync kit: a persistent client-side database caching toolkit for data
+  intensive websites.
+\newblock In {\em Proceedings of the 19th International Conference on World
+  Wide Web}, pages 121--130. ACM, 2010.
 
-\bibitem{clark:pct}
-M.~Clark.
-\newblock Post congress tristesse.
-\newblock In {\em TeX90 Conference Proceedings}, pages 84--89. TeX Users Group,
-  March 1991.
+\bibitem{bilenko2011predictive}
+M.~Bilenko and M.~Richardson.
+\newblock Predictive client-side profiles for personalized advertising.
+\newblock In {\em Proceedings of the 17th ACM SIGKDD international conference
+  on Knowledge discovery and data mining}, pages 413--421. ACM, 2011.
 
-\bibitem{herlihy:methodology}
-M.~Herlihy.
-\newblock A methodology for implementing highly concurrent data objects.
-\newblock {\em ACM Trans. Program. Lang. Syst.}, 15(5):745--770, November 1993.
+\bibitem{lin:jscene}
+J.~Lin.
+\newblock {\em On the Feasibility and Implications of Self-Contained Search
+  Engines in the Browser}.
+\newblock arXIV, 2014.
 
-\bibitem{Lamport:LaTeX}
-L.~Lamport.
-\newblock {\em LaTeX User's Guide and Document Reference Manual}.
-\newblock Addison-Wesley Publishing Company, Reading, Massachusetts, 1986.
-
-\bibitem{salas:calculus}
-S.~Salas and E.~Hille.
-\newblock {\em Calculus: One and Several Variable}.
-\newblock John Wiley and Sons, New York, 1978.
+\bibitem{lo2013imagen}
+J.~T.~K. Lo, E.~Wohlstadter, and A.~Mesbah.
+\newblock Imagen: Runtime migration of browser sessions for javascript web
+  applications.
+\newblock In {\em Proceedings of the 22nd international conference on World
+  Wide Web}, pages 815--826. International World Wide Web Conferences Steering
+  Committee, 2013.
 
 \end{thebibliography}
