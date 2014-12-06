@@ -37,6 +37,9 @@ Lucy.tokenize = function(string) {
 	var tokenCount = {length: 0,
 					  tokens: {}};
 					  
+	var stopwordCount = {length: 0, 
+						 tokens: {}};
+					  
 	for (var i=0; i<tokens.length; i++) {
 		if (!Lucy.isStopWord(tokens[i])) {
 			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
@@ -46,10 +49,21 @@ Lucy.tokenize = function(string) {
 				tokenCount["tokens"][stem] = 1;
 			}
 			tokenCount.length++;
+		} else {
+			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
+			if (stem in stopwordCount) {
+				stopwordCount["tokens"][stem]++;
+			} else {
+				stopwordCount["tokens"][stem] = 1;
+			}
+			stopwordCount.length++;
 		}
 	}
-	
-	return tokenCount;
+	if (tokenCount.length == 0) {
+		return stopwordCount;
+	} else {
+		return tokenCount;
+	}
 };
 
 Lucy.isStopWord = function(word) {

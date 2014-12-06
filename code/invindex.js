@@ -24,23 +24,20 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
     	var tokenCount = Lucy.tokenize(text);
     	
     	ret.result = [];
-    	if (tokenCount.length == 0) {
-	    	ret.onsuccess();
-    	} else {
-    		var counter = 0;
-	    	for (var token in tokenCount.tokens) {
-	    		var request = this.index.get(token);
-	    		counter++;
-	    		
-	    		request.onerror = function(evt) {
-	    			console.log(evt, token);
-	    			ret.result = evt.result;
-	    			ret.onerror();
-	    		};
-	    		request.onsuccess = function(evt) {
-	    			var result_ids = request.result.ids;
-	
-	    			for (var j=0; j<result_ids.length; j++) {
+		var counter = 0;
+    	for (var token in tokenCount.tokens) {
+    		var request = this.index.get(token);
+    		counter++;
+    		
+    		request.onerror = function(evt) {
+    			console.log(evt, token);
+    			ret.result = evt.result;
+    			ret.onerror();
+    		};
+    		request.onsuccess = function(evt) {
+				if (request.result) {
+					var result_ids = request.result.ids;
+					for (var j=0; j<result_ids.length; j++) {
 	    				var request_text = objStore.get(result_ids[j]);
 		    			request_text.onerror = function(evt) {
 			    			console.log(evt, token);
@@ -55,8 +52,12 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 							}
 		    			};
 	    			}
-	    		};
-    		}
+				} else {
+					if (counter == tokenCount.length) {
+						ret.onsuccess();
+					}
+				}
+    		};
     	}
     	return ret;
     };
