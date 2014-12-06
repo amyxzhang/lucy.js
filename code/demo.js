@@ -129,7 +129,7 @@ $("#submit-search").onclick = function () {
 		var transaction = db.transaction(["tweets", "tweet_text"], "readonly");
 		var objectStore = transaction.objectStore("tweets");
 		
-		var index = objectStore.index("text", {transaction: transaction});
+		var index = objectStore.index("text");
 		
 		//get returns a single entry (one with lowest key value)
 		var request = index.get(searchQuery);
@@ -137,9 +137,8 @@ $("#submit-search").onclick = function () {
 			console.log(evt, searchQuery);
 		};
 		request.onsuccess = function(evt) {
-			console.log(evt);
 			var searchResults = $('.search-results');
-			searchResults.textContent = evt;
+			searchResults.textContent = request.result.text;
 		};
 		
 		evt.target.result.close();

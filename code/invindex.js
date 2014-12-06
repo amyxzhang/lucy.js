@@ -8,6 +8,7 @@ var InvIndex = function(objStore, name, field, dbconn) {
 	this.objectStore = objStore;
 	this.name = name;
 	this.unique = false;
+	this.transaction = objStore.transaction;
 	
 	this.indexField = field;
 	
@@ -15,8 +16,9 @@ var InvIndex = function(objStore, name, field, dbconn) {
 	
     // Perform index search for a phrase
     this.get = function(text) {
+    	var ret = new IDBIndexRequest(this.objectStore, this.transaction);
+
     	var result_id;
-    	
     	var objStore = this.objectStore;
     	
     	var tokenCount = basictokenize(text);
@@ -24,7 +26,7 @@ var InvIndex = function(objStore, name, field, dbconn) {
     		var request = this.index.get(token);
     		request.onerror = function(evt) {
     			console.log(evt, token);
-    			return evt;
+    			ret.result = evt.result;
     		};
     		request.onsuccess = function(evt) {
     			var result = request.result.ids;
@@ -33,7 +35,6 @@ var InvIndex = function(objStore, name, field, dbconn) {
     				result_id = result[i];
     			}
    				
-   				console.log(result_id);
    				var request_text = objStore.get(result_id);
    				request_text.onerror = function(evt) {
     				console.log(evt, token);
@@ -42,15 +43,18 @@ var InvIndex = function(objStore, name, field, dbconn) {
     			request_text.onsuccess = function(evt) {
     				console.log(request_text);
     				if (request_text.result){
-    					return request_text.result;
+    					ret.result = request_text.result;
+    					ret.onsuccess();
     				} else {
-    					return evt;
+    					ret.result = evt;
     				}
     			};
     			
    				
     		};
     	}
+    	
+    	return ret;
     };
 
     // Tokenize and normalize data before insertion.

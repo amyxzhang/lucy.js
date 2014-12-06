@@ -4,6 +4,18 @@
  * 
  */
 
+/*
+ * Extends IDBRequest
+ * 
+ */
+var IDBIndexRequest = function(objStore, transaction) {
+	onsuccess = function(){};
+	onerror = function(){};
+	source = objStore;
+	transaction = transaction;
+};
+
+
 (function() {
 	
     // Store mapping between index name and index objects
@@ -55,19 +67,17 @@
     	console.log(this.textSearchIndexes);
     	
     	if (field in this.fieldToIndex) {
-    		if (optionalArgs && optionalArgs["transaction"]) {
-    			var indexName = this.fieldToIndex[field];
-    		
-    			var textIndex = this.textSearchIndexes[indexName];
-    			textIndex.objectStore = this;
-    			
-    			var transaction = optionalArgs["transaction"];
-    			console.log(transaction);
-    			textIndex.index = transaction.objectStore(indexName);
-    			console.log(textIndex);
-    			return textIndex;
-    		}
-
+			var indexName = this.fieldToIndex[field];
+		
+			var textIndex = this.textSearchIndexes[indexName];
+			textIndex.objectStore = this;
+			
+			var transaction = this.transaction;
+			console.log(transaction);
+			textIndex.index = transaction.objectStore(indexName);
+			textIndex.transaction = transaction;
+			console.log(textIndex);
+			return textIndex;
     	}
         return _index.apply(this, arguments);
     };
