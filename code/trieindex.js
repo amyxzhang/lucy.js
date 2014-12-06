@@ -129,7 +129,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                 if (result) {
                     var update_obj = result;
                     var docIds = update_obj.docIds;
-                    if (!(docId in docIds))
+                    if (docIds.indexOf(docId) <= -1)
                         docIds.push(docId);
                     var insertion = trieindex.store.put(update_obj);
                     insertion.onerror = function(evt) {
