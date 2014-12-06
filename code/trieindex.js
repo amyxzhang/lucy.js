@@ -19,54 +19,65 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         if (this.mode == "suffix") {
             text = reverse(text);
         }
-        var objStore = this.objectStore;
         var trieIndex = this.index.index(this.indexName);
         var docIds = [];
-        searchHelper(trieIndex, docIds, text, 0);
 
-        /*var results = [];
-        for (var i=0; i<docIds.length; i++) {
-            docId = docIds[i];
-            console.log(docId);
-            var requestText = objStore.get(docId);
-            requestText.onerror = function(evt) {
-                console.log(evt, text);
-                return evt;
-            };
-            requestText.onsuccess = function(evt) {
-                console.log(requestText);
-                if (evt.target.result){
-                    results.append(evt.target.result);
-                }
-            };
-        }
-        return results;*/
+        var ret = new IDBIndexRequest(this.objectStore, this.transaction);
+        ret.result = [];
+        searchHelper(trieIndex, docIds, text, 0, ret, this.objectStore);
+        return ret;
     };
 
-    function searchHelper(trieIndex, docIds, token, parentId) {
+    function searchHelper(trieIndex, docIds, token, parentId, ret, objStore) {
         console.log("token:", token, "parentId:", parentId);
         if (token.length == 0)
-            return;
+            ret.onsuccess();
         var c = token.charAt(0);
         var request = trieIndex.get([parentId, c]);
-        (function(trieIndex, docIds, token, parentId) {
+        (function(trieIndex, docIds, token, parentId, ret, objStore) {
             request.onsuccess = function(evt) {
-                console.log(evt);
                 if (evt.target.result) {
                     var result = evt.target.result;
                     if (token.length == 1) {
                         console.log(result.docIds);
                         docIds.push.apply(docIds, result.docIds);
+                        populateResultText(docIds, ret, objStore);
                     } else {
-                        searchHelper(trieIndex, docIds, token.substring(1), result.id);
+                        searchHelper(trieIndex, docIds, token.substring(1), result.id, ret, objStore);
                     }
+                } else {
+                    ret.onsuccess();
                 }
             };
             request.onerror = function(evt) {
     			console.log(evt, token);
-    			return evt;
+    			ret.onerror();
     		};
-        })(trieIndex, docIds, token, parentId);
+        })(trieIndex, docIds, token, parentId, ret, objStore);
+    }
+
+    function populateResultText(docIds, ret, objStore) {
+        var results = [];
+        var finish_counter = docIds.length;
+        for (var i=0; i<docIds.length; i++) {
+            docId = docIds[i];
+            finish_counter--;
+            var requestText = objStore.get(docId);
+            requestText.onerror = function(evt) {
+                console.log(evt, text);
+                ret.onerror();
+            };
+            requestText.onsuccess = function(evt) {
+                console.log(requestText);
+                if (evt.target.result){
+                    results.push(evt.target.result);
+                }
+                if (finish_counter == 0) {
+                    ret.result = results;
+                    ret.onsuccess();
+                }
+            };
+        }
     }
 
     var reverse = function(text) {
@@ -96,24 +107,27 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 		
 		return tokenCount;
 	}
-	
-	function indexToken(trieindex, docId, token) {
+
+    function indexToken(trieindex, docId, tokens, parentId, cursor) {
+        if (tokens.length == 0) {
+            cursor.continue();
+            return;
+        }
+        token = tokens[0];
+        if (token.length == 0) {
+            tokens.shift();
+            return indexToken(trieindex, docId, tokens, 0, cursor);
+        }
         if (this.mode == "suffix") {
             token = reverse(token);
         }
-        indexTokenHelper(trieindex, docId, token, 0);
-	}
-
-    function indexTokenHelper(trieindex, docId, token, parentId) {
-        if (token.length == 0)
-            return;
         var c = token.charAt(0);
         var getter = trieindex.index.get([parentId, c]);
-        (function(trieindex, docId, token, parentId) {
+        (function(trieindex, docId, token, parentId, cursor) {
             getter.onsuccess = function(evt) {
-                var cursor = evt.target.result;
-                if (cursor) {
-                    var update_obj = cursor;
+                var result = evt.target.result;
+                if (result) {
+                    var update_obj = result;
                     var docIds = update_obj.docIds;
                     if (!(docId in docIds))
                         docIds.push(docId);
@@ -122,26 +136,27 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                         console.log(evt, update_obj);
                     };
                     insertion.onsuccess = function(evt) {
-                        indexTokenHelper(trieindex, docId, token.substring(1), evt.target.result);
+                        tokens[0] = token.substring(1);
+                        indexToken(trieindex, docId, tokens, evt.target.result, cursor);
                     };
                 } else {
                     var docIds = [];
                     docIds.push(docId);
-                    //var insert_obj = {"parentId": parentId, "char": c, "docIds": docIds};
                     var insert_obj = {"parent_char": [parentId, c], "docIds": docIds};
                     var insertion = trieindex.store.add(insert_obj);
                     insertion.onerror = function(evt) {
-                        console.log(evt, insert_obj);
+                        console.log("insertion error", evt, insert_obj);
                     };
                     insertion.onsuccess = function(evt) {
-                        indexTokenHelper(trieindex, docId, token.substring(1), evt.target.result);
+                        tokens[0] = token.substring(1);
+                        indexToken(trieindex, docId, tokens, evt.target.result, cursor);
                     };
                 }
             };
             getter.onerror = function(evt) {
-                console.log(evt, token);
+                console.log(evt, c, parentId);
             };
-        })(trieindex, docId, token, parentId);
+        })(trieindex, docId, token, parentId, cursor);
     }
     
     function createIndex(trieindex, dbconn) {
@@ -151,11 +166,9 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     	console.log("Created Index object store");
 
         // create index on the object store
-        //trieindex.index = trieindex.store.createIndex(name, ["parentId", "char"], { unique:true });
         trieindex.indexName = name + "_index";
         trieindex.index = trieindex.store.createIndex(trieindex.indexName, "parent_char", { unique:true, multiEntry:false });
         console.log("Created index for trie");
-        //var root_node = {"id": 0, "parentId": -1, "char": '', "docIds": []};
         var root_node = {"id": 0, "parent_char": [-1, ''], "docIds": []};
         var insertion = trieindex.store.add(root_node);
         insertion.onerror = function(evt) {
@@ -175,10 +188,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 
                 //tokenize string
 				var tokenCount = basictokenize(text);
-                for (var token in tokenCount) {
-					indexToken(trieindex, docId, token);
-				}
-				cursor.continue();
+                indexToken(trieindex, docId, Object.keys(tokenCount), 0, cursor);
 			} else {
 				console.log("All entries indexed.");        
 			}
