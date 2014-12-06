@@ -5,11 +5,30 @@
  */
 
 
+var SUPPORTED_LANGUAGES = ['english',
+						   'danish',
+						   'dutch',
+						   'finnish',
+						   'french',
+						   'german',
+						   'hungarian',
+						   'italian',
+						   'norwegian',
+						   'portuguese',
+						   'russian',
+						   'spanish',
+						   'swedish',
+						   'romanian',
+						   'turkish'];
+
 /*
  * Static class for general purpose natural language processing functions 
  * 
  */
+
 function Lucy() {};
+
+Lucy.language = "english";
 
 Lucy.tokenize = function(string) { 
 	string = string.toLowerCase();
@@ -17,16 +36,35 @@ Lucy.tokenize = function(string) {
 	
 	var tokenCount = {};
 	for (var i=0; i<tokens.length; i++) {
-		if (tokens[i] in tokenCount) {
-			tokenCount[tokens[i]]++;
-		} else {
-			tokenCount[tokens[i]] = 1;
+		if (!Lucy.isStopWord(tokens[i])) {
+			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
+			if (stem in tokenCount) {
+				tokenCount[stem]++;
+			} else {
+				tokenCount[stem] = 1;
+			}
 		}
 	}
 	
 	return tokenCount;
 };
 
+Lucy.isStopWord = function(word) {
+	if(Lucy.stopwords.indexOf(word) <= 0) {
+		return false;
+	} else {
+		return true;	
+	}
+};
+
+Lucy.stemmer = function(language) {
+	var snowball = new Snowball(language);
+	return function(word) {
+		snowball.setCurrent(word);
+		snowball.stem();
+		return snowball.getCurrent();
+	};
+};
 
 
 
@@ -140,8 +178,15 @@ IDBIndexRequest.prototype = IDBRequest;
             // build the appropriate index using the builder functions below
             // add new index to this.textSearchIndexes
             var dbconn = optionalArgs["dbconn"];
+            var language = optionalArgs["language"];
+            if (!language || (SUPPORTED_LANGUAGES.indexOf(language) <= -1)) {
+            	language = "english";
+            }
+            language = language.toLowerCase();
+            Lucy.language = language;
+            
             if (optionalArgs["type"] == "inverted") {
-            	return buildInvertedIndex(this, indexName, keypath, dbconn);
+            	return buildInvertedIndex(this, indexName, keypath, dbconn, language);
             } else if (optionalArgs["type"] == "prefix") {
                 return buildPrefixIndex(this, indexName, keypath, dbconn);
             } else if (optionalArgs["type"] == "suffix") {
@@ -197,8 +242,8 @@ IDBIndexRequest.prototype = IDBRequest;
     name - str name of the index to be created
     returns InvertedIndex object
     */
-    var buildInvertedIndex = function(objStore, name, field, dbconn) {
-    	var invIndex = new InvIndex(objStore, name, field, dbconn);
+    var buildInvertedIndex = function(objStore, name, field, dbconn, language) {
+    	var invIndex = new InvIndex(objStore, name, field, dbconn, language);
     	objStore.textSearchIndexes[name] = invIndex;
     	objStore.fieldToIndex[field] = name;
 		return invIndex;
@@ -212,5 +257,5 @@ IDBIndexRequest.prototype = IDBRequest;
     var buildBTreeIndex = function(name) {
         return null;
     };
-    
+
 })();

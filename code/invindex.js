@@ -3,13 +3,14 @@
 Constructs an InvIndex for full-text search.
 */
 
-var InvIndex = function(objStore, name, field, dbconn) {
+var InvIndex = function(objStore, name, field, dbconn, language) {
 
 	this.objectStore = objStore;
 	this.name = name;
 	this.unique = false;
 	this.transaction = objStore.transaction;
 	
+	this.language = language;
 	this.indexField = field;
 	
 	createIndex(this, dbconn);
