@@ -20,63 +20,85 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
             text = reverse(text);
         }
         var trieIndex = this.index.index(this.indexName);
-        var docIds = [];
+        var docIdsDict = {};
 
         var ret = new IDBIndexRequest(this.objectStore, this.transaction);
         ret.result = [];
-        searchHelper(trieIndex, docIds, text, 0, ret, this.objectStore);
+        var tokenCount = Lucy.tokenize(text);
+        var finishCounter = {count: Object.keys(tokenCount.tokens).length};
+        for (token in tokenCount.tokens) {
+            var weight = tokenCount.tokens[token];
+            searchHelper(trieIndex, docIdsDict, token, weight, 0, ret, this.objectStore, finishCounter);
+        }
         return ret;
     };
 
-    function searchHelper(trieIndex, docIds, token, parentId, ret, objStore) {
-        console.log("token:", token, "parentId:", parentId);
-        if (token.length == 0)
-            ret.onsuccess();
+    function searchHelper(trieIndex, docIdsDict, token, weight, parentId, ret, objStore, finishCounter) {
+        if (token.length == 0) {
+            finishCounter.count--;
+            if (finishCounter.count == 0) {
+                populateResultText(docIdsDict, ret, objStore);
+            }
+        }
         var c = token.charAt(0);
         var request = trieIndex.get([parentId, c]);
-        (function(trieIndex, docIds, token, parentId, ret, objStore) {
+        (function(trieIndex, token, weight, parentId, ret, objStore, finishCounter) {        
             request.onsuccess = function(evt) {
                 if (evt.target.result) {
                     var result = evt.target.result;
                     if (token.length == 1) {
-                        console.log(result.docIds);
-                        docIds.push.apply(docIds, result.docIds);
-                        populateResultText(docIds, ret, objStore);
+                        finishCounter.count--;
+                        for (var i=0; i<result.docIds.length; i++) {
+                            docId = result.docIds[i];
+                            if (docId in docIdsDict) {
+                                docIdsDict[docId] += weight;
+                            } else {
+                                docIdsDict[docId] = weight;
+                            }
+                        }
+                        if (finishCounter.count == 0) {
+                            populateResultText(docIdsDict, ret, objStore);
+                        }
                     } else {
-                        searchHelper(trieIndex, docIds, token.substring(1), result.id, ret, objStore);
+                        searchHelper(trieIndex, docIdsDict, token.substring(1), weight, result.id, ret, objStore, finishCounter);
                     }
                 } else {
-                    ret.onsuccess();
+                    finishCounter.count--;
+                    if (finishCounter.count == 0) {
+						populateResultText(docIdsDict, ret, objStore);
+					}
                 }
             };
             request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.onerror();
     		};
-        })(trieIndex, docIds, token, parentId, ret, objStore);
+        })(trieIndex, token, weight, parentId, ret, objStore, finishCounter);
     }
 
-    function populateResultText(docIds, ret, objStore) {
-        var results = [];
-        var finish_counter = docIds.length;
-        for (var i=0; i<docIds.length; i++) {
-            docId = docIds[i];
-            finish_counter--;
-            var requestText = objStore.get(docId);
-            requestText.onerror = function(evt) {
-                console.log(evt, text);
-                ret.onerror();
-            };
-            requestText.onsuccess = function(evt) {
-                console.log(requestText);
-                if (evt.target.result){
-                    results.push(evt.target.result);
-                }
-                if (finish_counter == 0) {
-                    ret.result = results;
-                    ret.onsuccess();
-                }
-            };
+    function populateResultText(docIdsDict, ret, objStore) {
+        var resultsDict = {};
+        var finish_counter = { count:Object.keys(docIdsDict).length };
+        for (var docId in docIdsDict) {
+            (function(docId) {
+                var requestText = objStore.get(docId);
+                requestText.onerror = function(evt) {
+                    console.log(evt);
+                    ret.onerror();
+                };
+                requestText.onsuccess = function(evt) {
+                    if (evt.target.result){
+                        var score = docIdsDict[docId];
+                        resultsDict[docId] = evt.target.result;
+                        resultsDict[docId].score = score;
+                        finish_counter.count--;
+                    }
+                    if (finish_counter.count == 0) {
+                        ret.result = Lucy.convert_dict(resultsDict);
+                        ret.onsuccess();
+                    }
+                };
+            })(docId);
         }
     }
 
