@@ -30,8 +30,11 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 
     function searchHelper(trieIndex, docIds, token, parentId, ret, objStore) {
         console.log("token:", token, "parentId:", parentId);
-        if (token.length == 0)
+        
+        if (token.length == 0) {
             ret.onsuccess();
+        }
+        
         var c = token.charAt(0);
         var request = trieIndex.get([parentId, c]);
         (function(trieIndex, docIds, token, parentId, ret, objStore) {

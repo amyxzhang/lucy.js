@@ -34,6 +34,7 @@ function resetDBVersion() {
 }
 
 $('#import-data').onclick = function () {
+	var me = this;
 	resetDBVersion();
 	
 	var loadingStatus = $('.loading-status');
@@ -46,6 +47,7 @@ $('#import-data').onclick = function () {
 	
 	importData.onsuccess = function () {
 		loadingStatus.textContent = '';
+		me.classList.add('done');
 	};	
 };
 
@@ -119,9 +121,10 @@ $('#build-suffix-index').onclick = function () {
 };
 
 
-$("#submit-search").onclick = function () {
+// TODO This needs to use the other types of indices as well.
+$(".search").onsubmit = function () {
 	
-	var searchQuery = $('#search-query').value;
+	var searchQuery = $('#search-query', this).value;
 	
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 	DBOpenRequest.onsuccess = function(evt) {
@@ -131,30 +134,34 @@ $("#submit-search").onclick = function () {
 		
 		var index = objectStore.index("text");
 		
-		//get returns a single entry (one with lowest key value)
+		// get returns a single entry (one with lowest key value)
 		var request = index.get(searchQuery);
-		console.log(request);
+		
 		request.onerror = function(evt) {
 			console.log(evt, searchQuery);
 		};
+		
 		request.onsuccess = function(evt) {
-			var searchResults = $('.search-results');
-			var result = "";
 			if (request.result.length == 0) {
-				result = "No results";
+				var result = "No results";
 			} else {
-				for (var i=0; i<request.result.length; i++) {
-					result = result + "<P>" + request.result[i].text + "</P>";
-				}
+				var result = request.result.reduce(function(prev, tweet) {
+					return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
+					       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
+					       "</a></li>";
+				}, '');
 			}
-			searchResults.innerHTML = result;
+			
+			$('.search-results ul').innerHTML = result;
 		};
 		
 		evt.target.result.close();
 	};
+	
 	DBOpenRequest.onerror = function(evt) {
 		console.log(evt);
 	};
+	
 	return false;
 };
 

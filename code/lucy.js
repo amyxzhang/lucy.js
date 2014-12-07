@@ -5,21 +5,12 @@
  */
 
 
-var SUPPORTED_LANGUAGES = ['english',
-						   'danish',
-						   'dutch',
-						   'finnish',
-						   'french',
-						   'german',
-						   'hungarian',
-						   'italian',
-						   'norwegian',
-						   'portuguese',
-						   'russian',
-						   'spanish',
-						   'swedish',
-						   'romanian',
-						   'turkish'];
+var SUPPORTED_LANGUAGES = [
+	'english',  'danish', 'dutch',
+	'finnish', 'french', 'german',
+	'hungarian', 'italian', 'norwegian',
+	'portuguese', 'russian', 'spanish',
+	'swedish', 'romanian', 'turkish'];
 
 
 
@@ -69,11 +60,7 @@ Lucy.tokenize = function(string) {
 };
 
 Lucy.isStopWord = function(word) {
-	if(Lucy.stopwords.indexOf(word) <= 0) {
-		return false;
-	} else {
-		return true;	
-	}
+	return Lucy.stopwords.indexOf(word) > -1;
 };
 
 Lucy.stemmer = function(language) {
@@ -87,16 +74,14 @@ Lucy.stemmer = function(language) {
 
 // convert dictionary to ordered list, reverse score
 Lucy.convert_dict = function(dict) {
-	function comparator(a, b) {
-		return b.score - a.score;
-	}
-	
 	var olist = [];
 	for (var item in dict) {
 		olist.push(dict[item]);
 	}
-	olist.sort(comparator);
-	return olist;
+	
+	return olist.sort(function (a, b) {
+		return b.score - a.score;
+	});
 };
 
 

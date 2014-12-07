@@ -1,4 +1,3 @@
-
 Lucy.stopwords = [
 "",
 "a",
