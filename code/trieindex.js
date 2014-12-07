@@ -16,67 +16,92 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     // Perform prefix search
     // Return list of document objects with matches
     this.get = function(text) {
-        if (this.mode == "suffix") {
-            text = reverse(text);
-        }
         var trieIndex = this.index.index(this.indexName);
-        var docIds = [];
+        var docIdsDict = {};
 
         var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-        ret.result = [];
-        searchHelper(trieIndex, docIds, text, 0, ret, this.objectStore);
+        var tokenCount = Lucy.tokenize(text);
+        var finishCounter = {count: Object.keys(tokenCount.tokens).length};
+        for (token in tokenCount.tokens) {
+            var weight = tokenCount.tokens[token];
+            if (this.mode == "suffix") {
+                token = reverse(token);
+            }
+            searchHelper(trieIndex, docIdsDict, token, weight, 0, ret, this.objectStore, finishCounter);
+        }
         return ret;
     };
 
-    function searchHelper(trieIndex, docIds, token, parentId, ret, objStore) {
-        console.log("token:", token, "parentId:", parentId);
-        if (token.length == 0)
-            ret.onsuccess();
+    function searchHelper(trieIndex, docIdsDict, token, weight, parentId, ret, objStore, finishCounter) {
+        if (token.length == 0) {
+            finishCounter.count--;
+            if (finishCounter.count == 0) {
+                populateResultText(docIdsDict, ret, objStore);
+            }
+        }
         var c = token.charAt(0);
         var request = trieIndex.get([parentId, c]);
-        (function(trieIndex, docIds, token, parentId, ret, objStore) {
+        (function(trieIndex, token, weight, parentId, ret, objStore, finishCounter) {        
             request.onsuccess = function(evt) {
                 if (evt.target.result) {
                     var result = evt.target.result;
                     if (token.length == 1) {
-                        console.log(result.docIds);
-                        docIds.push.apply(docIds, result.docIds);
-                        populateResultText(docIds, ret, objStore);
+                        finishCounter.count--;
+                        for (var i=0; i<result.docIds.length; i++) {
+                            docId = result.docIds[i];
+                            if (docId in docIdsDict) {
+                                docIdsDict[docId] += weight;
+                            } else {
+                                docIdsDict[docId] = weight;
+                            }
+                        }
+                        if (finishCounter.count == 0) {
+                            populateResultText(docIdsDict, ret, objStore);
+                        }
                     } else {
-                        searchHelper(trieIndex, docIds, token.substring(1), result.id, ret, objStore);
+                        searchHelper(trieIndex, docIdsDict, token.substring(1), weight, result.id, ret, objStore, finishCounter);
                     }
                 } else {
-                    ret.onsuccess();
+                    finishCounter.count--;
+                    if (finishCounter.count == 0) {
+						populateResultText(docIdsDict, ret, objStore);
+					}
                 }
             };
             request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.onerror();
     		};
-        })(trieIndex, docIds, token, parentId, ret, objStore);
+        })(trieIndex, token, weight, parentId, ret, objStore, finishCounter);
     }
 
-    function populateResultText(docIds, ret, objStore) {
-        var results = [];
-        var finish_counter = docIds.length;
-        for (var i=0; i<docIds.length; i++) {
-            docId = docIds[i];
-            finish_counter--;
-            var requestText = objStore.get(docId);
-            requestText.onerror = function(evt) {
-                console.log(evt, text);
-                ret.onerror();
-            };
-            requestText.onsuccess = function(evt) {
-                console.log(requestText);
-                if (evt.target.result){
-                    results.push(evt.target.result);
-                }
-                if (finish_counter == 0) {
-                    ret.result = results;
-                    ret.onsuccess();
-                }
-            };
+    function populateResultText(docIdsDict, ret, objStore) {
+        var resultsDict = {};
+        var finish_counter = { count:Object.keys(docIdsDict).length };
+        if (finish_counter.count == 0) {
+            ret.result = [];
+            ret.onsuccess();
+        }
+        for (var docId in docIdsDict) {
+            (function(docId) {
+                var requestText = objStore.get(docId);
+                requestText.onerror = function(evt) {
+                    console.log(evt);
+                    ret.onerror();
+                };
+                requestText.onsuccess = function(evt) {
+                    if (evt.target.result){
+                        var score = docIdsDict[docId];
+                        resultsDict[docId] = evt.target.result;
+                        resultsDict[docId].score = score;
+                        finish_counter.count--;
+                    }
+                    if (finish_counter.count == 0) {
+                        ret.result = Lucy.convert_dict(resultsDict);
+                        ret.onsuccess();
+                    }
+                };
+            })(docId);
         }
     }
 
@@ -86,40 +111,26 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 
     // Tokenize and normalize data before insertion.
     this.insert = function(text, docId) {
-        var tokenCount = basictokenize(text);
-		for (var token in tokenCount) {
-			indexToken(trieIndex, docId, text);
-		}
+        //tokenize string
+        var tokens = Object.keys(Lucy.tokenize(text).tokens);
+        if (trieindex.mode == "suffix") {
+            for (var i=0; i<tokens.length; i++) {
+                tokens[i] = reverse(tokens[i]);
+            }
+        }
+        indexToken(trieindex, docId, tokens, 0);
     };
-
-    function basictokenize(s) {
-		s = s.toLowerCase();
-		var tokens = s.match(/\w+/g);
-		
-		var tokenCount = {};
-		for (var i=0; i<tokens.length; i++) {
-			if (tokens[i] in tokenCount) {
-				tokenCount[tokens[i]]++;
-			} else {
-				tokenCount[tokens[i]] = 1;
-			}
-		}
-		
-		return tokenCount;
-	}
 
     function indexToken(trieindex, docId, tokens, parentId, cursor) {
         if (tokens.length == 0) {
-            cursor.continue();
+            if (cursor)
+                cursor.continue();
             return;
         }
         token = tokens[0];
         if (token.length == 0) {
             tokens.shift();
             return indexToken(trieindex, docId, tokens, 0, cursor);
-        }
-        if (this.mode == "suffix") {
-            token = reverse(token);
         }
         var c = token.charAt(0);
         var getter = trieindex.index.get([parentId, c]);
@@ -129,7 +140,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                 if (result) {
                     var update_obj = result;
                     var docIds = update_obj.docIds;
-                    if (!(docId in docIds))
+                    if (docIds.indexOf(docId) <= -1)
                         docIds.push(docId);
                     var insertion = trieindex.store.put(update_obj);
                     insertion.onerror = function(evt) {
@@ -187,8 +198,13 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 				var docId = cursor.value[keyval];
 
                 //tokenize string
-				var tokenCount = basictokenize(text);
-                indexToken(trieindex, docId, Object.keys(tokenCount), 0, cursor);
+				var tokens = Object.keys(Lucy.tokenize(text).tokens);
+                if (trieindex.mode == "suffix") {
+                    for (var i=0; i<tokens.length; i++) {
+                        tokens[i] = reverse(tokens[i]);
+                    }
+                }
+                indexToken(trieindex, docId, tokens, 0, cursor);
 			} else {
 				console.log("All entries indexed.");        
 			}
