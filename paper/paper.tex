@@ -47,7 +47,19 @@ We also compare the performance of our system with that of fully server side sys
 
 \section{Introduction}
 
-Today
+Most web applications today primarily store the bulk of their data on a web server or on the cloud, and the client-side part of the application queries the server when it needs to access data.
+In recent years, more applications have been built that rely more heavily on client-side storage, as browser standards have come to support client-side databases such as IndexedDB. 
+The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network round trips.
+These have been useful for many large and complex web applications such as massive multi-player games CITE that would have previously only existed as desktop applications.
+Issues around privacy and ownership of data have also given rise to a number of applications CITE that move most or all of data storage to the client~\cite{bilenko2011predictive}. 
+Finally, many popular smartphone browsers rely on wireless signals to transmit information, which is prone to failure in areas with poor signal, suggesting that applications that are entirely client-side or applications that retains some functionality during downtime could be useful~\cite{balasubramanian2012findall}.
+
+While much work has been done to make it easier to store and query data in the browser~\cite{benson2010sync}, currently there are few known ways to conduct full-text searching on the client side. Search engines are a very important component of a large number of applications and are necessary to make sense of many forms of data CITE. However, the current standard of IndexedDB, a key-value store, only supports simple operations such as put and get on set of keys and secondary indexes on object fields. There are no built-in capabilities to create indexes and then search on full-text content. 
+
+In this paper, we introduce Lucy.js, a Javascript search engine that is an extension of the current IndexedDB API CITE, and we describe its design and implementation. It has been designed to be easy for anyone currently using IndexedDB to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communcation with IndexedDB. There are no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known server-side search engines, such as Lucene and within PostgreSQL, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
+
+Finally, we imagine the potential real-world use cases for a client-side search engine and how performance may be improved using this system. We implement a set of applications that would be reasonable in the real world and measure performance between fully client-side, fully server-side, and mixtures of both databases to respond to queries. We find that....
+This research demonstrates not only the feasibility of having search engines within the browser but also the potential for new applications and improved performance of existing applications through the additional capabilities provided by a client-side search engine.
 
 
 \section{Background and Related Work}
