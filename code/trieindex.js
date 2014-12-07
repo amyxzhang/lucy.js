@@ -111,40 +111,26 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 
     // Tokenize and normalize data before insertion.
     this.insert = function(text, docId) {
-        var tokenCount = basictokenize(text);
-		for (var token in tokenCount) {
-			indexToken(trieIndex, docId, text);
-		}
+        //tokenize string
+        var tokens = Object.keys(Lucy.tokenize(text).tokens);
+        if (trieindex.mode == "suffix") {
+            for (var i=0; i<tokens.length; i++) {
+                tokens[i] = reverse(tokens[i]);
+            }
+        }
+        indexToken(trieindex, docId, tokens, 0);
     };
-
-    function basictokenize(s) {
-		s = s.toLowerCase();
-		var tokens = s.match(/\w+/g);
-		
-		var tokenCount = {};
-		for (var i=0; i<tokens.length; i++) {
-			if (tokens[i] in tokenCount) {
-				tokenCount[tokens[i]]++;
-			} else {
-				tokenCount[tokens[i]] = 1;
-			}
-		}
-		
-		return tokenCount;
-	}
 
     function indexToken(trieindex, docId, tokens, parentId, cursor) {
         if (tokens.length == 0) {
-            cursor.continue();
+            if (cursor)
+                cursor.continue();
             return;
         }
         token = tokens[0];
         if (token.length == 0) {
             tokens.shift();
             return indexToken(trieindex, docId, tokens, 0, cursor);
-        }
-        if (this.mode == "suffix") {
-            token = reverse(token);
         }
         var c = token.charAt(0);
         var getter = trieindex.index.get([parentId, c]);
@@ -212,8 +198,13 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 				var docId = cursor.value[keyval];
 
                 //tokenize string
-				var tokenCount = basictokenize(text);
-                indexToken(trieindex, docId, Object.keys(tokenCount), 0, cursor);
+				var tokens = Object.keys(Lucy.tokenize(text).tokens);
+                if (trieindex.mode == "suffix") {
+                    for (var i=0; i<tokens.length; i++) {
+                        tokens[i] = reverse(tokens[i]);
+                    }
+                }
+                indexToken(trieindex, docId, tokens, 0, cursor);
 			} else {
 				console.log("All entries indexed.");        
 			}
