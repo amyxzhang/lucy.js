@@ -16,18 +16,17 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     // Perform prefix search
     // Return list of document objects with matches
     this.get = function(text) {
-        if (this.mode == "suffix") {
-            text = reverse(text);
-        }
         var trieIndex = this.index.index(this.indexName);
         var docIdsDict = {};
 
         var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-        ret.result = [];
         var tokenCount = Lucy.tokenize(text);
         var finishCounter = {count: Object.keys(tokenCount.tokens).length};
         for (token in tokenCount.tokens) {
             var weight = tokenCount.tokens[token];
+            if (this.mode == "suffix") {
+                token = reverse(token);
+            }
             searchHelper(trieIndex, docIdsDict, token, weight, 0, ret, this.objectStore, finishCounter);
         }
         return ret;
@@ -79,6 +78,10 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     function populateResultText(docIdsDict, ret, objStore) {
         var resultsDict = {};
         var finish_counter = { count:Object.keys(docIdsDict).length };
+        if (finish_counter.count == 0) {
+            ret.result = [];
+            ret.onsuccess();
+        }
         for (var docId in docIdsDict) {
             (function(docId) {
                 var requestText = objStore.get(docId);
