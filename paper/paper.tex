@@ -47,17 +47,50 @@ We also compare the performance of our system with that of fully server side sys
 
 \section{Introduction}
 
-Today
+Most applications on the web store the bulk of their data on a backend web server or on the cloud, and the client side queries the server when it needs to access data.
+As web applications have become more interactive and responsive in the past several years, developers have built larger and more complex web servers to support them. However, this separation of data from the client introduces significant network effects that can often lead to noticable latency, as data may be retrieved from servers that are very far away. 
+
+In recent years, more applications have been built that rely more heavily on client-side storage and offload data processing to web browsers. Today most commonly used browsers support the current HTML5 standards, which include a client-side persistent database called IndexedDB that is accessible via a JavaScript API. 
+The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network round trips.
+These have been useful for many large and complex web applications such as massive multi-player games CITE that would have previously only existed as desktop applications.
+Issues around privacy and ownership of data have also given rise to a number of applications CITE that move most or all of data storage to the client~\cite{bilenko2011predictive}. 
+Finally, many popular smartphone browsers rely on wireless signals to transmit information, which is prone to failure in areas with poor signal, suggesting that applications that are entirely client-side or applications that retains some functionality during downtime could be useful~\cite{balasubramanian2012findall}.
+
+While much work has been done to make it easier to store and query data in the browser~\cite{benson2010sync}, currently there are few known ways to conduct full-text searching on the client side. Search engines are a very important component of a large number of applications and are necessary to make sense of many forms of full-text data such as chat or private messages, social media content, search queries, and webpage titles and content. 
+As personalization has become more important for search engines, many designers of systems and architectures have highlighted the opportunities for client-side data computation~\cite{bharat2000searchpad,teevan2005personalizing}.
+Issues of privacy are also important when it comes to social applications and searching over personal data. New social applications such as CITE have been built that can operate without any servers, instead using peer-to-peer or Bluetooth connections.
+However, while it is possible to store full-text content on the client side, there is still no way to conduct full-text search on the client side at a reasonable speed, preventing most data computation necessary for a fully-featured search engine.
+The current standard of IndexedDB, a key-value store, only supports simple operations such as put and get on set of keys and secondary indexes on object fields. There are no built-in capabilities to create indexes for full-text content. 
+
+
+In this paper, we introduce Lucy.js, a fully client-side JavaScript search engine that is an extension of the current IndexedDB API CITE. It has been designed to be easy for anyone currently using IndexedDB in their application to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communication. There are also no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known search engines, such as Lucene and within PostgreSQL, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
+
+
+Finally, we imagine the potential real-world use cases for a client-side search engine and how performance may be improved using this system. We implement a set of applications that would be reasonable in the real world and measure performance between fully client-side, fully server-side, and mixtures of both databases to respond to queries. We find that....
+This research demonstrates not only the feasibility of having search engines within the browser but also the potential for new applications and improved performance of existing applications through the additional capabilities provided by a client-side search engine.
 
 
 \section{Background and Related Work}
+
+There have been some 
+Client-side database storage can improve the performance of data intensive websites by executing portions of web applications client-side and synchronizing with a web server.
+\cite{benson2010sync}
 
 There are a lot of cases where apps store a heavy amount of data in the browser. This study gives users ubiquitous access to data by allowing browser session migration \cite{lo2013imagen}
 
 client-side profiles for personalized advertising, privacy concerns \cite{bilenko2011predictive}
 
-Client-side database storage can improve the performance of data intensive websites by executing portions of web applications client-side and synchronizing with a web server.
-\cite{benson2010sync}
+
+
+previous use cases for client side search engine:
+client side application to capture search content to support web search
+\cite{bharat2000searchpad}
+
+personalization of search
+\cite{teevan2005personalizing}
+
+client side querying of search
+\cite{bozzon2010liquid}
 
 
 Search engines can be useful in the absence of connectivity on mobile phones. This system builds on a user study showing that revisitation is common.
@@ -69,15 +102,43 @@ Previous research has demonstrated that it is feasible to store a reverse index 
 
 
 
-\section{Lucy.js}
+\section{Architecture and Overview}
+
+\subsection{Extension of IndexedDB API}
+
+
+
+\subsection{Natural Language Processing}
+
+tokenizing
+
+Stopword removal
+
+Stemming
+
+different language capabilities
+
+\subsection{Scoring and Ranking}
+
+do we want to do tf-idf? postgres document normalization?
 
 
 
 \section{Index Implementations}
 
+We looked to many existing implementations of search engines and the indexes they used. Reverse indexes in Lucene. GiN and GiST indexes in PostgreSQL. Prefix and suffix tries from 
 
+\subsection{Inverted Indexes}
+
+\subsection{Prefix and Suffix Tries}
+
+\subsection{Lossy Search Trees}
+
+\subsection{Performance and Comparison}
 
 \section{Evaluation}
+
+
 
 
 \section{Discussion}
