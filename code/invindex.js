@@ -5,16 +5,15 @@ Constructs an InvIndex for full-text search.
 
 
 var InvIndex = function(objStore, name, field, dbconn, language) {
-
-	this.objectStore = objStore;
-	this.name = name;
-	this.unique = false;
-	this.transaction = objStore.transaction;
+	var me = this;
 	
+	this.objectStore = objStore;
+	this.transaction = objStore && objStore.transaction;
+	
+	this.name = name;
 	this.language = language;
 	this.indexField = field;
-	
-	createIndex(this, dbconn);
+	this.unique = false;
 	
     // Perform index search for a phrase
     this.get = function(text) {
@@ -60,10 +59,12 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 					
 					for (var j=0; j<result_ids.length; j++) {
 	    				var request_text = objStore.get(result_ids[j]);
+	    				
 		    			request_text.onerror = function(evt) {
 			    			console.log(evt, token);
 			    			ret.onerror();
 			    		};
+		    			
 		    			request_text.onsuccess = function(evt) {
 		    				finish_counter[curr_token]--;
 		    				var result = evt.srcElement.result;
@@ -102,56 +103,59 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 		}
     };
 	
-	function indexToken(invindex, id, token, count) {	
-		var getter = invindex.index.get(token);
+	function indexToken(id, token, count) {	
+		var getter = me.index.get(token);
+		
 		getter.onsuccess = function(evt) {
 			var cursor = getter.result;
+			
 			if (cursor) {
 				var update_obj = getter.result;
 	  			var ids = update_obj.ids;
 	  			ids.push(id);
-				var insertion = invindex.index.put(update_obj);
+				var insertion = me.index.put(update_obj);
 				insertion.onerror = function(evt) {
 					console.log(evt, update_obj);
 				};
 			} else {
-				var ids = [];
-				ids.push(id);
-				var insert_obj = {"token": token, "ids": ids};
-				var insertion = invindex.index.add(insert_obj);
+				var insert_obj = {"token": token, "ids": [id]};
+				var insertion = me.index.add(insert_obj);
+
 				insertion.onerror = function(evt) {
 					console.log(evt, insert_obj);
 				};
 			}
   			
 		};
+		
 		getter.onerror = function(evt) {
 			console.log(evt, token);
 		};
 	}
     
-    function createIndex(invindex, dbconn) {
+    this.build = function() {
     	
     	//create inverted index for field
-    	invindex.index = dbconn.createObjectStore(name, { keyPath: "token" });
+    	this.index = dbconn.createObjectStore(name, { keyPath: "token" });
     	console.log("Created Index object store");
 
-    	var keyval = invindex.objectStore.keyPath;
+    	var keyval = this.objectStore.keyPath;
     	
-    	console.log("Iterating through " + invindex.objectStore.name + " entries...");
+    	console.log("Iterating through " + this.objectStore.name + " entries...");
+    	
     	//iterate through objectstore
-    	var opencursor = invindex.objectStore.openCursor();
+    	var opencursor = this.objectStore.openCursor();
 		opencursor.onsuccess = function (evt) {
 			var cursor = evt.target.result;
 			if (cursor) {
-				var value = cursor.value[invindex.indexField];
+				var value = cursor.value[me.indexField];
 				var id = cursor.value[keyval];
 				//tokenize string
 				var tokenCount = Lucy.tokenize(value);
 				
 				var tokens = tokenCount.tokens;
 				for (var token in tokens) {
-					indexToken(invindex, id, token, tokenCount[token]);
+					indexToken(id, token, tokenCount[token]);
 				}
 
 				cursor.continue();

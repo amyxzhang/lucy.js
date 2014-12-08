@@ -1,10 +1,3 @@
-
-var databaseName = "LucyTest";
-var dataFile = "data/tweets.json";
-var currentDBVersion;
-
-loadDBVersion();
-
 function $(expr, con) {
 	return typeof expr === 'string'? (con || document).querySelector(expr) : expr;
 }
@@ -12,6 +5,22 @@ function $(expr, con) {
 function $$(expr, con) {
 	return Array.prototype.slice.call((con || document).querySelectorAll(expr));
 }
+
+
+var databaseName = "LucyTest";
+var dataFile = "data/tweets.json";
+var currentDBVersion;
+
+(function() {
+	// Init
+	loadDBVersion();
+	
+	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
+	
+	DBOpenRequest.onsuccess = function(evt) {
+		Lucy.init(evt.target.result);
+	};
+})();
 
 function loadDBVersion() {
 	var key = databaseName + "version";
@@ -64,18 +73,17 @@ $('#build-inv-index').onclick = function () {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweet_text", "text", {type: "inverted", dbconn: evt.target.result});
+		objectStore.createIndex("tweets_text", "text", {type: "inverted", db: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
-
 };
 
 $('#build-prefix-index').onclick = function () {
-	var loadingStatus = $('.loading-status');
+	//var loadingStatus = $('.loading-status');
 	
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
@@ -87,7 +95,7 @@ $('#build-prefix-index').onclick = function () {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweet_text_prefix", "text", {type: "prefix", dbconn: evt.target.result});
+		objectStore.createIndex("tweets_text_prefix", "text", {type: "prefix", db: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
@@ -98,7 +106,7 @@ $('#build-prefix-index').onclick = function () {
 };
 
 $('#build-suffix-index').onclick = function () {
-	var loadingStatus = $('.loading-status');
+	//var loadingStatus = $('.loading-status');
 	
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
@@ -110,52 +118,76 @@ $('#build-suffix-index').onclick = function () {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweet_text_suffix", "text", {type: "suffix", dbconn: evt.target.result});
+		objectStore.createIndex("tweets_text_suffix", "text", {type: "suffix", db: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
+			console.log('yolo');
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
 
 };
 
+function search(db, query, objectStore) {
+	var startTime = Date.now();
+	var type = "inverted";
+	var indexName = objectStore + '_text';
+	
+	if (/%$/.test(query)) { // Ends with %?
+		// Prefix search
+		type = "prefix";
+		indexName += '_' + type;
+	}
+	else if (query.indexOf('%') === 0) { // Starts with %?
+		// Suffix search
+		type = "suffix"
+		indexName += '_' + type;
+	}
+	
+	var transaction = db.transaction([objectStore, indexName], "readonly");
+	var objectStore = transaction.objectStore("tweets");
+
+	var index = objectStore.index("text", type);
+	
+	// get returns a single entry (one with lowest key value)
+	var request = index.get(query.replace(/%/g, ''));
+	
+	request.onerror = function(evt) {
+		console.error(evt, query);
+	};
+	
+	request.onsuccess = function(evt) {
+		$('.search-results .count').textContent = request.result.length + ' ';
+		$('.search-results .duration').textContent = (Date.now() - startTime) + 'ms';
+		
+		if (request.result.length == 0) {
+			var result = "No results";
+		} else {
+			var result = request.result.reduce(function(prev, tweet) {
+				return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
+				       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
+				       "</a></li>";
+			}, '');
+		}
+		
+		$('.search-results ul').innerHTML = result;
+	};
+}
+
 
 // TODO This needs to use the other types of indices as well.
 $(".search").onsubmit = function () {
 	
 	var searchQuery = $('#search-query', this).value;
-	
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
+	
 	DBOpenRequest.onsuccess = function(evt) {
 		var db = event.target.result;
-		var transaction = db.transaction(["tweets", "tweet_text"], "readonly");
-		var objectStore = transaction.objectStore("tweets");
 		
-		var index = objectStore.index("text");
-		
-		// get returns a single entry (one with lowest key value)
-		var request = index.get(searchQuery);
-		
-		request.onerror = function(evt) {
-			console.log(evt, searchQuery);
-		};
-		
-		request.onsuccess = function(evt) {
-			if (request.result.length == 0) {
-				var result = "No results";
-			} else {
-				var result = request.result.reduce(function(prev, tweet) {
-					return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
-					       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
-					       "</a></li>";
-				}, '');
-			}
-			
-			$('.search-results ul').innerHTML = result;
-		};
-		
-		evt.target.result.close();
+		search(db, searchQuery, 'tweets');
+				
+		db.close();
 	};
 	
 	DBOpenRequest.onerror = function(evt) {

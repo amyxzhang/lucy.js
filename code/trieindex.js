@@ -3,15 +3,16 @@
 Constructs a TrieIndex for prefix/suffix search.
 */
 
-var TrieIndex = function(objStore, name, field, mode, dbconn) {
+var TrieIndex = function(objStore, name, field, mode, db) {
+	var me = this;
 
 	this.objectStore = objStore;
-    this.transaction = objStore.transaction;
-	this.name = name;
+    this.transaction = objStore && objStore.transaction;
 	this.unique = false;
 	this.indexField = field;
     this.mode = mode;
-	createIndex(this, dbconn);
+    this.name = name;
+    this.indexName = this.name + "_index";
 	
     // Perform prefix search
     // Return list of document objects with matches
@@ -20,6 +21,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         var docIdsDict = {};
 
         var ret = new IDBIndexRequest(this.objectStore, this.transaction);
+
         var tokenCount = Lucy.tokenize(text, {disableStemming: true});
         var finishCounter = {count: Object.keys(tokenCount.tokens).length};
         for (token in tokenCount.tokens) {
@@ -50,11 +52,9 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                         finishCounter.count--;
                         for (var i=0; i<result.docIds.length; i++) {
                             docId = result.docIds[i];
-                            if (docId in docIdsDict) {
-                                docIdsDict[docId] += weight;
-                            } else {
-                                docIdsDict[docId] = weight;
-                            }
+                            
+                            docIdsDict[docId] = docIdsDict[docId] || 0;
+                            docIdsDict[docId] += weight;
                         }
                         if (finishCounter.count == 0) {
                             populateResultText(docIdsDict, ret, objStore);
@@ -119,10 +119,10 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         	tokens = tokens.map(function (token) { return reverse(token); });
         }
         
-        indexToken(trieindex, docId, tokens, 0);
+        indexToken(docId, tokens, 0);
     };
 
-    function indexToken(trieindex, docId, tokens, parentId, cursor) {
+    function indexToken(docId, tokens, parentId, cursor) {
         if (tokens.length == 0) {
             if (cursor)
                 cursor.continue();
@@ -131,10 +131,10 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         token = tokens[0];
         if (token.length == 0) {
             tokens.shift();
-            return indexToken(trieindex, docId, tokens, 0, cursor);
+            return indexToken(docId, tokens, 0, cursor);
         }
         var c = token.charAt(0);
-        var getter = trieindex.index.get([parentId, c]);
+        var getter = me.index.get([parentId, c]);
         (function(trieindex, docId, token, parentId, cursor) {
             getter.onsuccess = function(evt) {
                 var result = evt.target.result;
@@ -143,69 +143,71 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
                     var docIds = update_obj.docIds;
                     if (docIds.indexOf(docId) <= -1)
                         docIds.push(docId);
-                    var insertion = trieindex.store.put(update_obj);
+                    var insertion = me.store.put(update_obj);
                     insertion.onerror = function(evt) {
                         console.log(evt, update_obj);
                     };
                     insertion.onsuccess = function(evt) {
                         tokens[0] = token.substring(1);
-                        indexToken(trieindex, docId, tokens, evt.target.result, cursor);
+                        indexToken(docId, tokens, evt.target.result, cursor);
                     };
                 } else {
                     var docIds = [];
                     docIds.push(docId);
                     var insert_obj = {"parent_char": [parentId, c], "docIds": docIds};
-                    var insertion = trieindex.store.add(insert_obj);
+                    var insertion = me.store.add(insert_obj);
                     insertion.onerror = function(evt) {
                         console.log("insertion error", evt, insert_obj);
                     };
                     insertion.onsuccess = function(evt) {
                         tokens[0] = token.substring(1);
-                        indexToken(trieindex, docId, tokens, evt.target.result, cursor);
+                        indexToken(docId, tokens, evt.target.result, cursor);
                     };
                 }
             };
             getter.onerror = function(evt) {
                 console.log(evt, c, parentId);
             };
-        })(trieindex, docId, token, parentId, cursor);
+        })(me, docId, token, parentId, cursor);
     }
     
-    function createIndex(trieindex, dbconn) {
+    this.build = function() {
     	
     	// create object store for trie
-    	trieindex.store = dbconn.createObjectStore(name, { keyPath: "id", autoIncrement:true });
+    	this.store = db.createObjectStore(name, { keyPath: "id", autoIncrement:true });
     	console.log("Created Index object store");
 
         // create index on the object store
-        trieindex.indexName = name + "_index";
-        trieindex.index = trieindex.store.createIndex(trieindex.indexName, "parent_char", { unique:true, multiEntry:false });
+        this.index = me.store.createIndex(me.indexName, "parent_char", { unique:true, multiEntry:false });
         console.log("Created index for trie");
         var root_node = {"id": 0, "parent_char": [-1, ''], "docIds": []};
-        var insertion = trieindex.store.add(root_node);
+        
+        var insertion = me.store.add(root_node);
         insertion.onerror = function(evt) {
             console.log("Failed to insert root node", evt, root_node);
         };
 
-    	var keyval = trieindex.objectStore.keyPath;
+    	var keyval = this.objectStore.keyPath;
     	
-    	console.log("Iterating through " + trieindex.objectStore.name + " entries...");
+    	console.log("Iterating through " + me.objectStore.name + " entries...");
     	//iterate through objectstore
-    	var opencursor = trieindex.objectStore.openCursor();
+    	var opencursor = this.objectStore.openCursor();
+    	
 		opencursor.onsuccess = function (evt) {
 			var cursor = evt.target.result;
+			
 			if (cursor) {
-				var text = cursor.value[trieindex.indexField];
+				var text = cursor.value[me.indexField];
 				var docId = cursor.value[keyval];
 
                 //tokenize string
 				var tokens = Object.keys(Lucy.tokenize(text, {disableStemming: true}).tokens);
-                if (trieindex.mode == "suffix") {
-                    for (var i=0; i<tokens.length; i++) {
-                        tokens[i] = reverse(tokens[i]);
-                    }
+				
+                if (me.mode == "suffix") {
+                	tokens = tokens.map(function (token) { return reverse(token); });
                 }
-                indexToken(trieindex, docId, tokens, 0, cursor);
+                
+                indexToken(docId, tokens, 0, cursor);
 			} else {
 				console.log("All entries indexed.");        
 			}

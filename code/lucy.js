@@ -1,9 +1,7 @@
-
 /*
  * Lucy.js
  * 
  */
-
 
 var SUPPORTED_LANGUAGES = [
 	'english',  'danish', 'dutch',
@@ -12,14 +10,41 @@ var SUPPORTED_LANGUAGES = [
 	'portuguese', 'russian', 'spanish',
 	'swedish', 'romanian', 'turkish'];
 
-
-
 /*
  * Static class for general purpose natural language processing functions 
  * 
  */
 
-function Lucy() {};
+self.Lucy = {};
+
+Lucy.init = function(db) {
+	// Fetch all indices from database
+	this.indexCache = {};
+	
+	if (db.objectStoreNames.contains('__LucyIndices')) {
+		var cursor = db.transaction("__LucyIndices", "readonly").objectStore("__LucyIndices").openCursor();
+		
+		cursor.onsuccess = function (evt) {
+			var cursor = evt.target.result;
+			
+			if (cursor) {
+				var val = cursor.value;
+				
+				if (val.type == 'inverted') {
+					var index = new InvIndex(db.transaction(val.store).objectStore(val.store), val.name, val.path);
+				}
+				else {
+					var index = new TrieIndex(db.transaction(val.store).objectStore(val.store), val.name, val.path, val.type);
+				}
+
+				Lucy.indexCache[val.type] = Lucy.indexCache[val.type] || {};
+				Lucy.indexCache[val.type][val.name] = index;
+				
+				cursor.continue();
+			}
+		};
+	}
+}
 
 Lucy.language = "english";
 
@@ -42,17 +67,13 @@ Lucy.tokenize = function(string, options) {
 		
 		var count = Lucy.isStopWord(tokens[i])? stopwordCount : tokenCount;
 		
-		if (stem in count) {
-			count.tokens[stem]++;
-		}
-		else {
-			count.tokens[stem] = 1;
-		}
+		count.tokens[stem] = count.tokens[stem] || 0;
+		count.tokens[stem]++;
 		
 		count.length++;
 	}
 	
-	return tokenCount.length == 0? stopwordCount : tokenCount;
+	return tokenCount.length > 0? tokenCount: stopwordCount;
 };
 
 Lucy.isStopWord = function(word) {
@@ -103,41 +124,30 @@ IDBIndexRequest.prototype = IDBRequest;
 
 (function() {
 	
-    // Store mapping between index name and index objects
-    IDBObjectStore.prototype.textSearchIndexes = {};
-    
-    // Store mapping between obj field and index name
-    IDBObjectStore.prototype.fieldToIndex = {};
-
-    // Intercept insertion/update/delete methods
-    var _put = IDBObjectStore.prototype.put;
-    var _add = IDBObjectStore.prototype.add;
-    var _delete = IDBObjectStore.prototype.delete;
-    var _index = IDBObjectStore.prototype.index;
     
     /*
     Intercept put  
-    Insert/update item into all indexes in this.textSearchIndexes
     Raise DOMException with type DataError if key invalid
-    */  
+    */
+    var _put = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function(item, optionalKey) {
         return _put.apply(this, arguments);
     };
 
     /*
     Intercept add  
-    Insert item into all indexes in this.textSearchIndexes
     Raise DOMException with type DataError if key invalid
-    */    
+    */
+    var _add = IDBObjectStore.prototype.add;
     IDBObjectStore.prototype.add = function(item, optionalKey) {
         return _add.apply(this, arguments);
     };
 
     /*
     Intercept delete
-    Remove record from all indexes in this.textSearchIndexes
     Raise DOMException with type DataError if key invalid
     */
+    var _delete = IDBObjectStore.prototype.delete;
     IDBObjectStore.prototype.delete = function(recordKey) {
         return _delete.apply(this, arguments);
     };
@@ -146,29 +156,42 @@ IDBIndexRequest.prototype = IDBRequest;
     Intercept index  
     Return index associated with this field
     Raise DOMException with type DataError if key invalid
-    */  
-    IDBObjectStore.prototype.index = function(field, optionalArgs) {
+    */
+    var _index = IDBObjectStore.prototype.index;
+    IDBObjectStore.prototype.index = function(field, type) {
     	
-    	if (field in this.fieldToIndex) {
-			var indexName = this.fieldToIndex[field];
-		
-			var textIndex = this.textSearchIndexes[indexName];
-			textIndex.objectStore = this;
+    	if (type) {
+    		var transaction = this.transaction;
+    		
+    		// Is it cached?
+    		var cached = false;
+    		var indexCache = Lucy.indexCache[type]
+			for (var indexName in indexCache) {
+				var index = indexCache[indexName];
+				
+				if (index && index.objectStore.name == this.name &&
+				    index.indexField == field) {
+				    // Found it!
+				    var cached = true;
+				}
+			}
 			
-			var transaction = this.transaction;
-			textIndex.index = transaction.objectStore(indexName);
-			textIndex.transaction = transaction;
-			return textIndex;
+			if (!cached) {
+				// Fetch from database
+				throw new Error("Your index is not cached yo");
+			}
+			
+			index.objectStore = this;
+			index.transaction = transaction;
+
+			index.index = transaction.objectStore(index.name);
+			
+			return index;
     	}
     	
         return _index.apply(this, arguments);
     };
     
-
-    // Intercept index creation/deletion
-    var _createIndex = IDBObjectStore.prototype.createIndex;
-    var _deleteIndex = IDBObjectStore.prototype.deleteIndex;
-
     /*
     Intercept createIndex
     indexName - str name for the new index
@@ -181,28 +204,46 @@ IDBIndexRequest.prototype = IDBRequest;
     Raise DOMException with type DataError if key invalid
     Raise DOMException with type ConstraintError if indexName invalid
     */
+    var _createIndex = IDBObjectStore.prototype.createIndex;
     IDBObjectStore.prototype.createIndex = function(indexName, keypath, optionalArgs) {
-        if (indexName in this.textSearchIndexes) {
-            // ConstraintError
-        }
-        if (optionalArgs && optionalArgs["type"] && optionalArgs["dbconn"]) {
-            // build the appropriate index using the builder functions below
-            // add new index to this.textSearchIndexes
-            var dbconn = optionalArgs["dbconn"];
+    	var db = optionalArgs.db;
+    	var type = optionalArgs.type;
+    	
+        if (optionalArgs && type && db) {
+        	// It’s a Lucy index!
             var language = optionalArgs["language"];
             if (!language || (SUPPORTED_LANGUAGES.indexOf(language) <= -1)) {
             	language = "english";
             }
-            language = language.toLowerCase();
-            Lucy.language = language;
+            Lucy.language = language = language.toLowerCase();
             
-            if (optionalArgs["type"] == "inverted") {
-            	return buildInvertedIndex(this, indexName, keypath, dbconn, language);
-            } else if (optionalArgs["type"] == "prefix") {
-                return buildPrefixIndex(this, indexName, keypath, dbconn);
-            } else if (optionalArgs["type"] == "suffix") {
-                return buildSuffixIndex(this, indexName, keypath, dbconn);
+            switch (type) {
+            	case "inverted":
+            		var index = new InvIndex(this, indexName, keypath, db, language);
+            		break;
+            	case "prefix":
+            	case "suffix":
+            		var index = new TrieIndex(this, indexName, keypath, optionalArgs.type, db);
             }
+            
+            index.build();
+            
+            if (!db.objectStoreNames.contains('__LucyIndices')) {
+            	var metaStore = db.createObjectStore('__LucyIndices', {'keyPath': ["store", "path", "type"]});
+            }
+            else {
+            	var metaStore = this.transaction.objectStore("__LucyIndices");
+            }
+            
+            metaStore.put({
+            	store: this.name,
+            	path: keypath,
+            	type: type,
+            	name: indexName
+            });
+            
+            Lucy.indexCache[type] = Lucy.indexCache[type] || {};
+            Lucy.indexCache[type][indexName] = index;
         } else {
             return _createIndex.apply(this, arguments);
         }
@@ -210,63 +251,12 @@ IDBIndexRequest.prototype = IDBRequest;
 
     /*
     Intercept deleteIndex
-    If the index is a text search index, remove it from this.textSearchIndexes
     Otherwise, call the original deleteIndex method
     */
+    var _deleteIndex = IDBObjectStore.prototype.deleteIndex;
     IDBObjectStore.prototype.deleteIndex = function(indexName) {
-        if (indexName in this.textSearchIndexes) {
-            delete this.textSearchIndexes[indexName];
-        } else {
-            return _deleteIndex.apply(this, arguments);
-        }
+    	// TODO as we don't seem to be calling this anywhere right now
+    	// (the previous impl wouldn't work anymore now that index info is persistent)
+        return _deleteIndex.apply(this, arguments);
     };
-
-    // Index builder methods that do any necessary pre-processing
-    // of data before calling index object constructors.
-
-    /*
-    Creates a prefix tree index for pattern-matching.
-    name - str name of the index to be created (stored in textSearchIndexes)
-    returns TrieIndex object
-    */
-    var buildPrefixIndex = function(objStore, name, field, dbconn) {
-        var prefixIndex = new TrieIndex(objStore, name, field, "prefix", dbconn);
-    	objStore.textSearchIndexes[name] = prefixIndex;
-    	objStore.fieldToIndex[field] = name;
-		return prefixIndex;
-    };
-
-    /*
-    Builds a suffix tree index for pattern-matching by inserting reversed strings into prefix tree
-    name - str name of the index to be created
-    returns TrieIndex object
-    */
-    var buildSuffixIndex = function(objStore, name, field, dbconn) {
-        var suffixIndex = new TrieIndex(objStore, name, field, "suffix", dbconn);
-    	objStore.textSearchIndexes[name] = suffixIndex;
-    	objStore.fieldToIndex[field] = name;
-		return suffixIndex;
-    };
-
-    /*
-    Builds an inverted index for full-text searches.
-    name - str name of the index to be created
-    returns InvertedIndex object
-    */
-    var buildInvertedIndex = function(objStore, name, field, dbconn, language) {
-    	var invIndex = new InvIndex(objStore, name, field, dbconn, language);
-    	objStore.textSearchIndexes[name] = invIndex;
-    	objStore.fieldToIndex[field] = name;
-		return invIndex;
-    };
-
-    /*
-    Builds a B+ tree index for full-text searches
-    name - str name of the index to be created
-    returns BTreeIndex object
-    */
-    var buildBTreeIndex = function(name) {
-        return null;
-    };
-
 })();

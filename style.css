@@ -7,6 +7,10 @@ body {
 	font: 100%/1.5  Helvetica Neue, sans-serif;
 }
 
+strong {
+	font-weight: bold;
+}
+
 h1 {
 	font-weight: 100;
 	line-height: 1;
@@ -144,10 +148,16 @@ footer {
 	text-align: center;
 }
 
+#import-data {
+	display: block;
+	margin: 0 auto 1em;
+}
+/*
 #import-data.done,
 #import-data:not(.done) ~ button {
 	display: none;
 }
+*/
 
 .search-results ul {
 	padding: 0;
@@ -169,4 +179,17 @@ footer {
 		display: block;
 		color: gray;
 		font-size: 70%;
+	}
+	
+	.search-results .count:empty,
+	.search-results .duration:empty {
+		display: none;
+	}
+	
+	.search-results .duration::before {
+		content: '(';
+	}
+	
+	.search-results .duration::after {
+		content: ')';
 	}
