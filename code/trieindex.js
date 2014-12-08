@@ -20,7 +20,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
         var docIdsDict = {};
 
         var ret = new IDBIndexRequest(this.objectStore, this.transaction);
-        var tokenCount = Lucy.tokenize(text);
+        var tokenCount = Lucy.tokenize(text, {disableStemming: true});
         var finishCounter = {count: Object.keys(tokenCount.tokens).length};
         for (token in tokenCount.tokens) {
             var weight = tokenCount.tokens[token];
@@ -113,12 +113,12 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
     // Tokenize and normalize data before insertion.
     this.insert = function(text, docId) {
         //tokenize string
-        var tokens = Object.keys(Lucy.tokenize(text).tokens);
+        var tokens = Object.keys(Lucy.tokenize(text, {disableStemming: true}).tokens);
+        
         if (trieindex.mode == "suffix") {
-            for (var i=0; i<tokens.length; i++) {
-                tokens[i] = reverse(tokens[i]);
-            }
+        	tokens = tokens.map(function (token) { return reverse(token); });
         }
+        
         indexToken(trieindex, docId, tokens, 0);
     };
 
@@ -199,7 +199,7 @@ var TrieIndex = function(objStore, name, field, mode, dbconn) {
 				var docId = cursor.value[keyval];
 
                 //tokenize string
-				var tokens = Object.keys(Lucy.tokenize(text).tokens);
+				var tokens = Object.keys(Lucy.tokenize(text, {disableStemming: true}).tokens);
                 if (trieindex.mode == "suffix") {
                     for (var i=0; i<tokens.length; i++) {
                         tokens[i] = reverse(tokens[i]);

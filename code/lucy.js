@@ -23,40 +23,36 @@ function Lucy() {};
 
 Lucy.language = "english";
 
-Lucy.tokenize = function(string) { 
+Lucy.tokenize = function(string, options) {
+	options = options || {};
+	options.disableStemming = !!options.disableStemming;
+	
 	string = string.toLowerCase();
 	var tokens = string.match(/\w+/g);
 	
-	var tokenCount = {length: 0,
-					  tokens: {}};
-					  
-	var stopwordCount = {length: 0, 
-						 tokens: {}};
+	var tokenCount = {length: 0, tokens: {}};
+	var stopwordCount = {length: 0, tokens: {}};
+	
+	if (!options.disableStemming) {
+		var stemmer = Lucy.stemmer(Lucy.language);
+	}
 					  
 	for (var i=0; i<tokens.length; i++) {
-		if (!Lucy.isStopWord(tokens[i])) {
-			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
-			if (stem in tokenCount) {
-				tokenCount["tokens"][stem]++;
-			} else {
-				tokenCount["tokens"][stem] = 1;
-			}
-			tokenCount.length++;
-		} else {
-			var stem = Lucy.stemmer(Lucy.language)(tokens[i]);
-			if (stem in stopwordCount) {
-				stopwordCount["tokens"][stem]++;
-			} else {
-				stopwordCount["tokens"][stem] = 1;
-			}
-			stopwordCount.length++;
+		var stem = options.disableStemming? tokens[i] : stemmer(tokens[i]);
+		
+		var count = Lucy.isStopWord(tokens[i])? stopwordCount : tokenCount;
+		
+		if (stem in count) {
+			count.tokens[stem]++;
 		}
+		else {
+			count.tokens[stem] = 1;
+		}
+		
+		count.length++;
 	}
-	if (tokenCount.length == 0) {
-		return stopwordCount;
-	} else {
-		return tokenCount;
-	}
+	
+	return tokenCount.length == 0? stopwordCount : tokenCount;
 };
 
 Lucy.isStopWord = function(word) {
@@ -164,6 +160,7 @@ IDBIndexRequest.prototype = IDBRequest;
 			textIndex.transaction = transaction;
 			return textIndex;
     	}
+    	
         return _index.apply(this, arguments);
     };
     
