@@ -85,9 +85,18 @@ Another existing implementation of a client side search engine called Lunr.js\fo
 We also demonstrate several real-life situations that may call for a hybrid client and server database architecture for full-text search and measure their speed.
 
 
-
-
 \section{Architecture and Overview}
+
+In this section, we explain the overall goals and architecture of Lucy.js, how it fits into IndexedDB, as well as give futher details of our implementation. 
+
+\subsection{Goals}
+
+The two main goals of Lucy.js we aimed to achieve while implementing it were: (i) to build a search engine extension to IndexedDB that is easy to use and similar to the existing IndexedDB API, and (ii) to create different types of indexes that can all be used for full-text searching and find out which are more suited to which tasks and what the trade-offs are. We design Lucy.js so that it is easy as a developer to be able to specify which type of index to make on a field based on the type of queries that will most often be submitted.
+
+\subsection{IndexedDB}
+
+
+
 
 \subsection{Extension of IndexedDB API}
 
@@ -106,6 +115,14 @@ different language capabilities
 \subsection{Scoring and Ranking}
 
 do we want to do tf-idf? postgres document normalization?
+
+
+
+
+\subsection{Implementation}
+
+We created Lucy.js in JavaScript, as the IndexedDB API is also in JavaScript. 
+
 
 
 
