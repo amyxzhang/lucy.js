@@ -71,34 +71,18 @@ This research demonstrates not only the feasibility of having search engines wit
 \section{Background and Related Work}
 
 Though previous HTML standards and browser capabilities were more limited, the idea of using of the client side for data storage and data computation has been around for many years. 
+Some research has looked into building tools to support an architecture that includes client-side databases, including toolkits to synchronize data between the client and server~\cite{benson2010sync}. Another project facilitates ubiquitous access to client-side data across multiple browsers by enabling browser session migration from client to server to client~\cite{lo2013imagen}. 
 
-
-
-When it comes to search engines, specifically web search, prior work has found that 40\% to 60\% of search queries are re-finding queries~\cite{teevan2005personalizing}. This finding has lead to applications that store web content from the result of a search engine to improve speed and availability when the network is down~\cite{bozzon2010liquid,balasubramanian2012findall}. Prior work in this area has also highlighted how web search can often be a highly personal activity, and that web search should be personalized to the user to improve accuracy. Personal information can then be stored on the client side as this information is primarily useful for this particular client~\cite{teevan2005personalizing}.
+When it comes to search engines, specifically web search, prior work has found that 40\% to 60\% of search queries are re-finding queries~\cite{teevan2005personalizing}. This finding has lead to applications that store web content from the result of a search engine to improve speed and availability when the network is down~\cite{bozzon2010liquid,bharat2000searchpad,balasubramanian2012findall}. Prior work in this area have also highlighted how web search can often be a highly personal activity, and that web search should be personalized to the user to improve accuracy. Personal information can then be stored on the client side as this information is primarily useful for this particular client~\cite{teevan2005personalizing}.
+Privacy is also a large concern for applications that collect personal data. Some applications have tackled personalized advertising using client-side stored profiles to mitigate this problem~\cite{bilenko2011predictive}.
 
 With the increased use of mobile phones in recent years, many web applications are now accessed via a smartphone. Here too, studies have shown that many queries to search engines are for re-finding. Using a client-side database is potentially even more impactful for a mobile phone browser because network connectivity is much less robust. Researchers have demonstrated this feasiblity by building a standalone search application for Android~\cite{balasubramanian2012findall}. However, this search engine is not usable with other browsing apps or other phones. Because we build an extension on top of IndexedDB, our search engine will be able to work for all browsers, desktop or mobile, that support IndexedDB, which is the majority of them.
 
-Client-side database storage can improve the performance of data intensive websites by executing portions of web applications client-side and synchronizing with a web server.
-\cite{benson2010sync}
-
-
-There are a lot of cases where apps store a heavy amount of data in the browser. This study gives users ubiquitous access to data by allowing browser session migration \cite{lo2013imagen}
-
-client-side profiles for personalized advertising, privacy concerns \cite{bilenko2011predictive}
-
-
-
-Applications have also been built to take advantage of client-side storage
-client side application to capture search content to support web search
-\cite{bharat2000searchpad}
-
-
-
-
-
-
-Previous research has demonstrated that it is feasible to store a reverse index within IndexedDB
-\cite{lin:jscene} though it is much slower than using a server-side application such as Lucene.
+There currently exists some prototypes of client-side search engines. Currently, all existing implementations only create inverted indexes.
+For instance, previous research has demonstrated that it is feasible to store an inverted index within IndexedDB~\cite{lin:jscene} though it is much slower than using a server-side application such as Lucene.
+We improve on these works by implementing different types of indexes for full-text search and comparing their performance. 
+Another existing implementation of a client side search engine called Lunr.js\footnote{http://www.lunrjs.com} store indexes in the client-side memory, which is infeasible for large amounts of data and also non-persistent. Instead, our system uses IndexedDB tables to hold indexes. Also, the YDN-DB module\footnote{https://github.com/yathit/ydn-db-fulltext} which wraps around the IndexedDB API, requires developers to migrate over to use the YDN system. Instead our system is simply an extension of IndexedDB.
+We also demonstrate several real-life situations that may call for a hybrid client and server database architecture for full-text search and measure their speed.
 
 
 
