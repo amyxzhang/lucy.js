@@ -166,7 +166,7 @@ Other functions of \texttt{IDBIndex} that are supported include \texttt{getKey},
 
 \subsection{Natural Language Processing}
 
-Queries to our full-text search engine can be words or phrases. In addition, they can contain a special wildcard symbol \textbf{\%} at the start or end of a word to search for parts of words. At this time, we do not support full regular expressions nor exact phrase matches.
+Queries to our full-text search engine can be words or phrases. In addition, they can contain a special wildcard symbol \textbf{\%} at the start or end of any word to search for parts of words. At this time, we do not support full regular expressions nor exact phrase matches.
 
 The processing that we conduct on queries and on the full text is standard for most search engines such as Lucene, MySQL, and PostgreSQL. The first thing we do is tokenize the text into contiguous strings of alphabetic characters, which are generally words. We convert the entire text to lower case and then remove stopwords from the bag of words. The stopword list we employ is taken from MySQL's full-text stopword list\footnote{http://dev.mysql.com/doc/refman/5.1/en/fulltext-stopwords.html}. The reason we remove stopwords is because these words are present in much of natural language and including them could grow the result set to be very large but not return very relevant results.
 
@@ -178,9 +178,10 @@ Sometimes however these processing techniques are not desired, given a particula
 Finally, our system offers flexible support for other languages. The stemmer that we employ has support for 14 common languages in addition to English. When creating an index, a developer can specify as an optional parameter the language the full-text strings are in. Then, when it comes time, the stemmer will choose the given language to use for stemming.
 Also, the stopword list is included as a separate JavaScript file. To swap out one language's stopwords with another's, one only needs to replace the JavaScript file imported in the HTML page. This prevents web pages from having to load stopword lists of all supported languages when using Lucy.js. 
 
-\subsection{Scoring and Ranking}
+\subsection{Scoring and Ranking Results}
 
-do we want to do tf-idf? postgres document normalization?
+There are many ways to score and rank results of a search query. Some techniques, such as \textit{tf-idf}, require precalculated document metadata. Others require knowning positional information about a word within a document. We define several built-in ranking functions derived from PostgreSQL's built-in \texttt{ts\_rank} and \texttt{ts\_rank\_cd} functions that take in a \texttt{normalization} option, with integer inputs providing different types of document normalizations\footnote{http://www.postgresql.org/docs/8.3/static/textsearch-controls.html}.
+The PostgreSQL's functions take into account how often the query terms appear in the document as well as how close together the terms are in the document. However, it is possible for a developer to implement their own ranking function and replace ours with theirs within Lucy.js.
 
 
 
