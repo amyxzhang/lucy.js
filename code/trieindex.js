@@ -3,7 +3,7 @@
 Constructs a TrieIndex for prefix/suffix search.
 */
 
-var TrieIndex = function(objStore, name, field, mode) {
+var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 	var me = this;
 
 	this.objectStore = objStore; // overriden before index is used
@@ -13,6 +13,14 @@ var TrieIndex = function(objStore, name, field, mode) {
     this.mode = mode;
     this.name = name;
     this.indexName = this.name + "_index";
+    this.maxDepth = -1;
+    if (maxDepth) {
+        this.maxDepth = maxDepth;
+    }
+
+    function hasMaxDepth() {
+        return me.maxDepth != -1;
+    }
 	
     // Perform prefix search
     // Return list of document objects with matches
@@ -49,12 +57,10 @@ var TrieIndex = function(objStore, name, field, mode) {
 
         var c = token.charAt(0);
         var request = metaIndex.get([parentId, c]);
-        
         (function(metaIndex, token, weight, parentId, ret, objStore, finishCounter) {        
             request.onsuccess = function(evt) {
                 if (evt.target.result) {
                     var result = evt.target.result;
-                    
                     if (token.length == 1) {
                         finishCounter.count--;
                         
@@ -65,6 +71,22 @@ var TrieIndex = function(objStore, name, field, mode) {
                             docIdsDict[docId] += weight;
                         }
                         
+                        if (finishCounter.count == 0) {
+                            populateResultText(docIdsDict, ret, objStore);
+                        }
+                    } else if (Object.keys(result.wordMap).length != 0) { // reached maxDepth
+                        finishCounter.count--;
+                        var rem = token.substring(1);
+                        for (var key in result.wordMap) {
+                            if (key.indexOf(rem) == 0) {
+                                var matches = result.wordMap[key];
+                                for (var i=0; i < matches.length; i++) {
+                                    var m = matches[i];
+                                    docIdsDict[m] = docIdsDict[docId] || 0;
+                                    docIdsDict[m] += weight;
+                                }
+                            }
+                        }
                         if (finishCounter.count == 0) {
                             populateResultText(docIdsDict, ret, objStore);
                         }
@@ -134,10 +156,10 @@ var TrieIndex = function(objStore, name, field, mode) {
         	tokens = tokens.map(function (token) { return reverse(token); });
         }
         
-        indexToken(docId, tokens, 0);
+        indexToken(docId, tokens, 1);
     };
 
-    function indexToken(docId, tokens, parentId, cursor) {
+    function indexToken(docId, tokens, parentId, cursor, depth) {
         if (tokens.length == 0) {
             if (cursor) {
                 cursor.continue();
@@ -150,17 +172,28 @@ var TrieIndex = function(objStore, name, field, mode) {
         if (token.length == 0) {
             tokens.shift(); // Remove first word from list of tokens
             
-            return indexToken(docId, tokens, 0, cursor);
+            return indexToken(docId, tokens, 0, cursor, 1);
         }
         
         var c = token.charAt(0);
         var getter = me.index.get([parentId, c]);
         
         getter.onsuccess = function(evt) {
-            var object = evt.target.result || {parent_char: [parentId, c], docIds: []};
+            var object = evt.target.result || {parent_char: [parentId, c], docIds: [], wordMap: {}};
             
             if (object.docIds.indexOf(docId) == -1) {
             	object.docIds.push(docId);
+            }
+
+            if (hasMaxDepth() && depth >= me.maxDepth) {
+                var rem = token.slice(1);
+                if (rem in object.wordMap) {
+                    if (object.wordMap[rem].indexOf(docId) == -1) {
+                        object.wordMap[rem].push(docId);
+                    }
+                } else {
+                    object.wordMap[rem] = [docId];
+                }
             }
                             
             var insertion = me.store.put(object);
@@ -171,7 +204,18 @@ var TrieIndex = function(objStore, name, field, mode) {
             
             insertion.onsuccess = function(evt) {
                 tokens[0] = token.slice(1); // Remove first character
-                indexToken(docId, tokens, evt.target.result, cursor);
+                if (hasMaxDepth()) {
+                    if (depth < me.maxDepth) {
+                        depth = depth+1; // Increment depth
+                        indexToken(docId, tokens, evt.target.result, cursor, depth);
+                    } else {
+                        // max depth reached
+                        tokens.shift();
+                        indexToken(docId, tokens, 0, cursor, 1);
+                    }
+                } else {
+                    indexToken(docId, tokens, evt.target.result, cursor, depth);
+                }
             };
         };
         
@@ -217,7 +261,7 @@ var TrieIndex = function(objStore, name, field, mode) {
                 	tokens = tokens.map(function (token) { return reverse(token); });
                 }
                 
-                indexToken(docId, tokens, 0, cursor);
+                indexToken(docId, tokens, 0, cursor, 1);
                 
 			} else {
 				console.log("All entries indexed.");        
