@@ -107,7 +107,7 @@ Almost all transactions in IndexedDB are asynchronous, meaning that one must req
 
 \subsubsection{Creating a Full-Text Index}
 The interface to a database is maintained through an \texttt{IDBDatabase} object.
-To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the object store \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, field\_name\right)$} function for creating full-text indexes. We additionally have the parameter of \texttt{type} which allows the developer to specify the type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on a field \texttt{text} in an object store of Twitter tweets.
+To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the object store \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, key\_path\right)$} function for creating full-text indexes. We add an additional optional parameter of \texttt{type} which allows the developer to specify a type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on an object field \texttt{text} in an object store of Twitter tweets.
 
 \begin{verbatim}
 var newDBVersion = incrementDBVersion();
@@ -127,6 +127,41 @@ DBRequest.onsuccess = function(evt) {
 
 \subsubsection{Searching over a Full-Text Index}
 
+There are two ways to retrieve items given an \texttt{IDBIndex} object using the IndexedDB API. 
+The first is to use a \texttt{get} function, which returns an \texttt{IDBRequest} object with the \texttt{result} field populated with the value in the object store that corresponds to the given index key. The second is to call \texttt{openCursor}, which returns an \texttt{IDBCursor} object that can be iterated over. One can pass in a range of keys instead of just one key to either function, using the \texttt{IDBKeyRange} interface.
+
+In our case, a given search query may return many results that have different levels of relevance to the query. For this reason, each object returned has an addition field called \texttt{score}, which has a relevancy value with higher being more relevant. 
+In the next section, we go into more detail into how the score is calculated for different types of search queries.
+By default we return all relevant (\texttt{score} $>$ 0) objects in reverse order of \texttt{score}. 
+
+However, a query can return a large number of items with low relevancy if the query contains a term that is common. In IndexedDB, there is an interface called \texttt{IDBKeyRange} that is used for when a user wishes to query a range of keys. We extend this interface to include ranges of \texttt{score} values, so that users can set a cutoff or range of the relevancy score. This feature is also one that is available in PostgreSQL as **********.
+
+In the follow code snippet, we provide an example of a \texttt{get} function on the inverted index created in the last section. The object returned is an \texttt{IDBIndexRequest} object, which mimics the behavior of \texttt{IDBRequest}.
+
+\begin{verbatim}
+var index = objStore.index("tweets_text");
+var request = index.get("follow friday");
+request.onsuccess = function(evt) {
+     console.log(request.result);
+};
+\end{verbatim}
+
+The following is an example of generating a cursor over a query on a full-text index. The cursor can be made to play forwards or backwards over the intended order using the parameter value of ``next" or ``prev".
+
+\begin{verbatim}
+var index = objStore.index("tweets_text");
+var request = index.openCursor("#nowplaying", "next");
+request.onsuccess = function(evt) {
+     var cursor = event.target.result;
+     if(cursor) {
+          console.log("Text: " + cursor.value.text +
+                      "Score:" cursor.value.score);
+          cursor.continue();
+     }
+};
+\end{verbatim}
+
+Other functions of \texttt{IDBIndex} that are supported include \texttt{getKey}, which returns the primary keys on the original object store that are the result of a query, and \texttt{count}, which returns the number of relevant objects.
 
 
 \subsection{Natural Language Processing}
