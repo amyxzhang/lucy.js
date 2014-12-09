@@ -48,11 +48,11 @@ We also compare the performance of our system with that of fully server side sys
 
 \section{Introduction}
 
-Most applications on the web store the bulk of their data on a backend web server or on the cloud, and the client side queries the server when it needs to access data.
-As web applications have become more interactive and responsive in the past several years, developers have built larger and more complex web servers to support them. However, this separation of data from the client introduces significant network effects that can often lead to noticable latency, as data may be retrieved from servers that are very far away. 
+Most web applications store the bulk of their data on a backend web server or on the cloud, and the client side queries the server when it needs to access data.
+As web applications have become more interactive and responsive in the past several years, developers have built larger and more complex web servers to support them. However, this separation of data from the client introduces significant network effects that can often lead to noticeable latency, as data may be retrieved from servers that are very far away. 
 
-In recent years, more applications have been built that rely more heavily on client-side storage and offload data processing to web browsers. Today most commonly used browsers support the current HTML5 standards, which include a client-side persistent database called IndexedDB that is accessible via a JavaScript API. 
-The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network round trips.
+In recent years, more applications are being built that heavily rely on client-side storage and offload data processing to web browsers. Today most commonly used browsers support the current HTML5 standards, which include a persistent client-side DBMS with the name IndexedDB that is accessible via a set of JavaScript APIs. 
+The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network roundtrips.
 These have been useful for many large and complex web applications such as massive multi-player games CITE that would have previously only existed as desktop applications.
 Issues around privacy and ownership of data have also given rise to a number of applications CITE that move most or all of data storage to the client~\cite{bilenko2011predictive}. 
 Finally, many popular smartphone browsers rely on wireless signals to transmit information, which is prone to failure in areas with poor signal, suggesting that applications that are entirely client-side or applications that retains some functionality during downtime could be useful~\cite{balasubramanian2012findall}.
@@ -63,7 +63,7 @@ Issues of privacy are also important when it comes to social applications and se
 However, while it is possible to store full-text content on the client side, there is still no way to conduct full-text search on the client side at a reasonable speed, preventing most data computation necessary for a fully-featured search engine.
 The current standard of IndexedDB, a key-value store, only supports simple operations such as put and get on set of keys and secondary indexes on object fields. There are no built-in capabilities to create indexes for full-text content. 
 
-In this paper, we introduce Lucy.js, a fully client-side JavaScript search engine that is an extension of the current IndexedDB API CITE. It has been designed to be easy for anyone currently using IndexedDB in their application to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communication. There are also no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known search engines, such as Lucene and within PostgreSQL, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
+In this paper, we introduce Lucy.js, a fully client-side JavaScript search engine that is an extension of the current IndexedDB API CITE. It has been designed to be easy for anyone currently using IndexedDB in their application to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communication. There are also no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known search engines, such as Lucene CITE and within PostgreSQL CITE, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
 
 Finally, we imagine the potential real-world use cases for a client-side search engine and how performance may be improved using this system. We implement a set of applications that would be reasonable in the real world and measure performance between fully client-side, fully server-side, and mixtures of both databases to respond to queries. We find that....
 This research demonstrates not only the feasibility of having search engines within the browser but also the potential for new applications and improved performance of existing applications through the additional capabilities provided by a client-side search engine.
@@ -79,16 +79,16 @@ Privacy is also a large concern for applications that collect personal data. Som
 
 With the increased use of mobile phones in recent years, many web applications are now accessed via a smartphone. Here too, studies have shown that many queries to search engines are for re-finding. Using a client-side database is potentially even more impactful for a mobile phone browser because network connectivity is much less robust. Researchers have demonstrated this feasiblity by building a standalone search application for Android~\cite{balasubramanian2012findall}. However, this search engine is not usable with other browsing apps or other phones. Because we build an extension on top of IndexedDB, our search engine will be able to work for all browsers, desktop or mobile, that support IndexedDB, which is the majority of them.
 
-There currently exists some prototypes of client-side search engines. Currently, all existing implementations only create inverted indexes.
+Some prototypes of client-side search engines have previously been built CITE. Currently, all existing implementations only create basic inverted indexes.
 For instance, previous research has demonstrated that it is feasible to store an inverted index within IndexedDB~\cite{lin:jscene} though it is much slower than using a server-side application such as Lucene.
 We improve on these works by implementing different types of indexes for full-text search and comparing their performance. 
-Another existing implementation of a client side search engine called Lunr.js\footnote{http://www.lunrjs.com} store indexes in the client-side memory, which is infeasible for large amounts of data and also non-persistent. Instead, our system uses IndexedDB tables to hold indexes. Also, the YDN-DB module\footnote{https://github.com/yathit/ydn-db-fulltext} which wraps around the IndexedDB API, requires developers to migrate over to use the YDN system. Instead our system is simply an extension of IndexedDB.
+Another existing implementation of a client side search engine called Lunr.js\footnote{http://www.lunrjs.com} stores indexes in the client-side memory, which is infeasible for large amounts of data and also non-persistent. Instead, our system uses IndexedDB object stores to hold indexes. Also, the YDN-DB module\footnote{https://github.com/yathit/ydn-db-fulltext} which wraps around the IndexedDB API, requires developers to migrate over to use the YDN system. Instead our system is simply an extension of IndexedDB.
 We also demonstrate several real-life situations that may call for a hybrid client and server database architecture for full-text search and measure their speed.
 
 
 \section{Architecture and Overview}
 
-In this section, we explain the overall goals and architecture of Lucy.js, how it fits into IndexedDB, as well as give futher details of our implementation. 
+In this section, we explain the overall goals and architecture of Lucy.js, how it fits into IndexedDB, as well as give further details of our implementation. 
 
 \subsection{Goals}
 
@@ -96,11 +96,11 @@ The two main goals of Lucy.js we aimed to achieve while implementing it were: (i
 
 \subsection{IndexedDB}
 
-Indexed Database (IndexedDB) is a Javascript API that was a Proposed Recommendation to the W3C on November 20th 2014~\cite{w3c} and is supported by most modern browsers on the desktop and phone, such as newer versions of Chrome, Firefox, Internet Exploror, Opera, and Safari. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
+Indexed Database (IndexedDB) is a collection of Javascript APIs and is an official W3C specification (Proposed Recommendation stage) ~\cite{w3c}. It is supported by almost every modern browser, both on desktop and mobile devices. Chrome, Firefox, Internet Explorer, Opera, and Safari are only some of the browsers that have added support for IndexedDB in their modern versions. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
 On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, put and get commands using the key, and forward and backward iteration over keys. 
 
 The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specifies what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write lock the specified object stores for the entire duration of the transaction.
-Almost all transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
+All transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
 
 
 \subsection{Extending IndexedDB}
