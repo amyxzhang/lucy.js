@@ -146,7 +146,7 @@ request.onsuccess = function(evt) {
 };
 \end{verbatim}
 
-The following is an example of generating a cursor over a query on a full-text index. The cursor can be made to play forwards or backwards over the intended order using the parameter value of ``next" or ``prev".
+The following is an example of generating a cursor over a query on a full-text index. The cursor can be made to play forwards or backwards over the intended order using the parameter value of \texttt{next} or \texttt{prev}.
 
 \begin{verbatim}
 var index = objStore.index("tweets_text");
@@ -166,13 +166,17 @@ Other functions of \texttt{IDBIndex} that are supported include \texttt{getKey},
 
 \subsection{Natural Language Processing}
 
-tokenizing
+Queries to our full-text search engine can be words or phrases. In addition, they can contain a special wildcard symbol \textbf{\%} at the start or end of a word to search for parts of words. At this time, we do not support full regular expressions nor exact phrase matches.
 
-Stopword removal
+The processing that we conduct on queries and on the full text is standard for most search engines such as Lucene, MySQL, and PostgreSQL. The first thing we do is tokenize the text into contiguous strings of alphabetic characters, which are generally words. We convert the entire text to lower case and then remove stopwords from the bag of words. The stopword list we employ is taken from MySQL's full-text stopword list\footnote{http://dev.mysql.com/doc/refman/5.1/en/fulltext-stopwords.html}. The reason we remove stopwords is because these words are present in much of natural language and including them could grow the result set to be very large but not return very relevant results.
 
-Stemming
+Next, we employ stemming on each individual word using an open source JavaScript implementation of a Snowball stemmer\footnote{https://github.com/fortnightlabs/snowball-js}. 
+Stemming can be a useful part of search engines because a user may be interested in text containing a word even if the word is pluralized or has some other form of suffix.
 
-different language capabilities
+Sometimes however these processing techniques are not desired, given a particular type of text, type of query, or type of index used. For instance, stemming does not make sense when we are building a suffix trie. Our system allows the developer to pass optional parameters to disable stopword removal or stemming when desired. It is also possible for developers to edit the stopwords list for a list that is domain-specific or otherwise more preferred.
+
+Finally, our system offers flexible support for other languages. The stemmer that we employ has support for 14 common languages in addition to English. When creating an index, a developer can specify as an optional parameter the language the full-text strings are in. Then, when it comes time, the stemmer will choose the given language to use for stemming.
+Also, the stopword list is included as a separate JavaScript file. To swap out one language's stopwords with another's, one only needs to replace the JavaScript file imported in the HTML page. This prevents web pages from having to load stopword lists of all supported languages when using Lucy.js. 
 
 \subsection{Scoring and Ranking}
 
