@@ -139,6 +139,31 @@ We looked to many existing implementations of search engines and the indexes the
 
 \subsection{Prefix and Suffix Tries}
 
+Trie indexes are used to perform prefix and suffix searches on text data. While prefix/suffix search is often used for pattern-matching that matches the entire original text, the trie index in Lucy.js uses tokenization to perform finer-grained searches on multi-word text inputs (like tweet data). Phrase search with tries is also supported. This allows users to search by multiple prefixes or suffixes at a time, and get results with the most matches.
+
+Prefix and suffix tries are implemented using the same design. The only difference between them is that words are reversed before insertion into suffix tries, and similarly, search terms are reversed before they are looked up in the suffix trie. Otherwise, they rely on the same implementation as described below.
+
+A trie index in Lucy.js (prefix or suffix trie) is represented by two underlying entities in IndexedDB: an objects store to save nodes in the trie, and an index on that object store to make trie traversal faster.  A reference to the input object store to be indexed -- which contains the full-text to be searched -- is also saved.
+
+\paragraph{Trie Node Object Store}
+Each entry in the object store represents a different node in the trie. The structure of entries in the object store is as follows:
+\begin{center}
+node\_id: \{ parent\_id: a, char: b, doc\_ids: [x,y,z] \}
+\end{center}
+The key to the object store is the node\_id, and the corresponding value object has three attributes: parent\_id, char, and doc\_ids. The parent\_id attribute is the node id of the parent node in the trie, and the char attribute is the character value for the trie node. The final attribute is doc\_ids, which is a list of keys into the input text object store. The keys in this list are like foreign keys that allow the trie index to retrieve the actual text from the input object store when answering queries. Each path -- and therefore each node -- in the trie represents a unique prefix/suffix. The doc\_ids for a node contains the ids of all documents with that given prefix/suffix. Inserting a word from a given document therefore involves appending that document's id into the doc\_ids of each node along the path corresponding to the word.
+
+\paragraph{Trie Node Index}
+While the structure of the trie node object store optimizes lookups by node id, this is not particularly useful for trie traversal. When traversing down a trie, we would instead like to look up nodes by both their character value and their parent id. It would have been possible to change the design of the trie object store so that each node stored a list of children node ids instead of a single parent id. However, this approach requires each node to store more information, since a list of children ids is saved per node instead of a single parent id. Additionally, we would then need to iterate over this list of children ids in order to find a particular child node with a given character value. With the current object store structure, we can optimize lookups by parent\_id and char by building an index on both these attributes. Overall, the trie index is backed by an object store for node storage and an index on that object store with a compound key of both parent\_id and char.
+
+\paragraph{Lookups}
+Lookups in the trie index are performed by traversing the trie downward, character by character in the search pattern. Partial matches are not accepted; the entire prefix (or suffix) must be present in the trie or no results are returned. If the entire pattern is found, the doc\_ids are extracted from the trie node corresponding to the last letter of the search pattern. These ids are used to key into the input text object store and retrieve the original text data.
+
+\paragraph{Tokenization}
+Unlike with the inverted index, words are not stemmed before insertion or lookups. This is especially important for suffix tries because many suffix searches will not succeed due to stemming of the original text being searched. Tokenization is still used to break up input into words; it is used during both insertion (so that prefix/suffix searches can be done by word), and during lookups (making phrase search possible). Phrase search in tries involves performing prefix/suffix search on each word in the input search phrase, and ranking results by the number of matching patterns in the original text. 
+
+\paragraph{Synchronization}
+Due to the manner in which letters in a word need to be inserted sequentially in a trie, much of IndexedDB's built-in asynchronous behavior cannot be used to improve performance. In fact, the parallelization that IndexedDB introduces can cause serious problems due to collisions between different threads. When testing on tweet data, even inserting two tweets concurrently posed problems because the tweets contained words that started with the same letter. As a result, concurrently-running threads would try to insert duplicate elements, resulting in IndexedDB transaction errors. To avoid this, text is added sequentially to the trie index during creation, and insertion of words occurs sequentially by letter. While this avoids transaction errors, it greatly increases index creation time.
+
 \subsection{Lossy Search Trees}
 
 \subsection{Performance and Comparison}
