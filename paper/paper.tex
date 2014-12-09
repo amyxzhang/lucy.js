@@ -9,6 +9,7 @@
 \usepackage{balance}  % for  \balance command ON LAST PAGE  (only there!)
 
 
+
 \begin{document}
 
 % ****************** TITLE ****************************************
@@ -98,12 +99,33 @@ The two main goals of Lucy.js we aimed to achieve while implementing it were: (i
 Indexed Database (IndexedDB) is a Javascript API that was a Proposed Recommendation to the W3C on November 20th 2014~\cite{w3c} and is supported by most modern browsers on the desktop and phone, such as newer versions of Chrome, Firefox, Internet Exploror, Opera, and Safari. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
 On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, put and get commands using the key, and forward and backward iteration over keys. 
 
-The IndexedDB API supports transactions that rely on strict two-phase locking, so that read-only transactions can run concurrently but read-write transactions lock the specified object stores (similar to tables in a relational data store) for the entire duration of the transaction.
+The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specifies what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write lock the specified object stores for the entire duration of the transaction.
 Almost all transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
 
 
+\subsection{Extending IndexedDB}
 
-\subsection{Extension of IndexedDB API}
+\subsubsection{Creating a Full-Text Index}
+The interface to a database is maintained through an \texttt{IDBDatabase} object.
+To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the object store \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, field\_name\right)$} function for creating full-text indexes. We additionally have the parameter of \texttt{type} which allows the developer to specify the type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on a field \texttt{text} in an object store of Twitter tweets.
+
+\begin{verbatim}
+var newDBVersion = incrementDBVersion();
+var DBRequest = indexedDB.open(databaseName,
+                               newDBVersion);
+DBRequest.onupgradeneeded = function(evt) {
+     var tn = evt.target.transaction;	
+     var objStore = tn.objectStore("tweets");
+     objStore.createIndex("tweets_text", "text", 
+                          {"type": "inverted"});
+};
+DBRequest.onsuccess = function(evt) {
+     evt.target.result.close();
+};
+\end{verbatim}
+
+
+\subsubsection{Searching over a Full-Text Index}
 
 
 
