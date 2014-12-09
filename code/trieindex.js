@@ -3,11 +3,11 @@
 Constructs a TrieIndex for prefix/suffix search.
 */
 
-var TrieIndex = function(objStore, name, field, mode, db) {
+var TrieIndex = function(objStore, name, field, mode) {
 	var me = this;
 
-	this.objectStore = objStore;
-    this.transaction = objStore && objStore.transaction;
+	this.objectStore = objStore; // overriden before index is used
+    this.transaction = objStore && objStore.transaction; // overriden before index is used
 	this.unique = false;
 	this.indexField = field;
     this.mode = mode;
@@ -24,72 +24,87 @@ var TrieIndex = function(objStore, name, field, mode, db) {
 
         var tokenCount = Lucy.tokenize(text, {disableStemming: true});
         var finishCounter = {count: Object.keys(tokenCount.tokens).length};
+        
         for (token in tokenCount.tokens) {
             var weight = tokenCount.tokens[token];
+            
             if (this.mode == "suffix") {
                 token = reverse(token);
             }
+            
             searchHelper(trieIndex, docIdsDict, token, weight, 0, ret, this.objectStore, finishCounter);
         }
+        
         return ret;
     };
 
-    function searchHelper(trieIndex, docIdsDict, token, weight, parentId, ret, objStore, finishCounter) {
+    function searchHelper(metaIndex, docIdsDict, token, weight, parentId, ret, objStore, finishCounter) {
         if (token.length == 0) {
             finishCounter.count--;
+            
             if (finishCounter.count == 0) {
                 populateResultText(docIdsDict, ret, objStore);
             }
         }
 
         var c = token.charAt(0);
-        var request = trieIndex.get([parentId, c]);
-        (function(trieIndex, token, weight, parentId, ret, objStore, finishCounter) {        
+        var request = metaIndex.get([parentId, c]);
+        
+        (function(metaIndex, token, weight, parentId, ret, objStore, finishCounter) {        
             request.onsuccess = function(evt) {
                 if (evt.target.result) {
                     var result = evt.target.result;
+                    
                     if (token.length == 1) {
                         finishCounter.count--;
+                        
                         for (var i=0; i<result.docIds.length; i++) {
                             docId = result.docIds[i];
                             
                             docIdsDict[docId] = docIdsDict[docId] || 0;
                             docIdsDict[docId] += weight;
                         }
+                        
                         if (finishCounter.count == 0) {
                             populateResultText(docIdsDict, ret, objStore);
                         }
                     } else {
-                        searchHelper(trieIndex, docIdsDict, token.substring(1), weight, result.id, ret, objStore, finishCounter);
+                        searchHelper(metaIndex, docIdsDict, token.substring(1), weight, result.id, ret, objStore, finishCounter);
                     }
                 } else {
                     finishCounter.count--;
+                    
                     if (finishCounter.count == 0) {
 						populateResultText(docIdsDict, ret, objStore);
 					}
                 }
             };
+            
             request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.onerror();
     		};
-        })(trieIndex, token, weight, parentId, ret, objStore, finishCounter);
+        })(metaIndex, token, weight, parentId, ret, objStore, finishCounter);
     }
 
     function populateResultText(docIdsDict, ret, objStore) {
         var resultsDict = {};
-        var finish_counter = { count:Object.keys(docIdsDict).length };
+        var finish_counter = { count: Object.keys(docIdsDict).length };
+        
         if (finish_counter.count == 0) {
             ret.result = [];
             ret.onsuccess();
         }
+        
         for (var docId in docIdsDict) {
             (function(docId) {
                 var requestText = objStore.get(docId);
+                
                 requestText.onerror = function(evt) {
                     console.log(evt);
                     ret.onerror();
                 };
+                
                 requestText.onsuccess = function(evt) {
                     if (evt.target.result){
                         var score = docIdsDict[docId];
@@ -115,7 +130,7 @@ var TrieIndex = function(objStore, name, field, mode, db) {
         //tokenize string
         var tokens = Object.keys(Lucy.tokenize(text, {disableStemming: true}).tokens);
         
-        if (trieindex.mode == "suffix") {
+        if (me.mode == "suffix") {
         	tokens = tokens.map(function (token) { return reverse(token); });
         }
         
@@ -124,83 +139,78 @@ var TrieIndex = function(objStore, name, field, mode, db) {
 
     function indexToken(docId, tokens, parentId, cursor) {
         if (tokens.length == 0) {
-            if (cursor)
+            if (cursor) {
                 cursor.continue();
+            }
             return;
         }
+        
         token = tokens[0];
+        
         if (token.length == 0) {
-            tokens.shift();
+            tokens.shift(); // Remove first word from list of tokens
+            
             return indexToken(docId, tokens, 0, cursor);
         }
+        
         var c = token.charAt(0);
         var getter = me.index.get([parentId, c]);
-        (function(trieindex, docId, token, parentId, cursor) {
-            getter.onsuccess = function(evt) {
-                var result = evt.target.result;
-                if (result) {
-                    var update_obj = result;
-                    var docIds = update_obj.docIds;
-                    if (docIds.indexOf(docId) <= -1)
-                        docIds.push(docId);
-                    var insertion = me.store.put(update_obj);
-                    insertion.onerror = function(evt) {
-                        console.log(evt, update_obj);
-                    };
-                    insertion.onsuccess = function(evt) {
-                        tokens[0] = token.substring(1);
-                        indexToken(docId, tokens, evt.target.result, cursor);
-                    };
-                } else {
-                    var docIds = [];
-                    docIds.push(docId);
-                    var insert_obj = {"parent_char": [parentId, c], "docIds": docIds};
-                    var insertion = me.store.add(insert_obj);
-                    insertion.onerror = function(evt) {
-                        console.log("insertion error", evt, insert_obj);
-                    };
-                    insertion.onsuccess = function(evt) {
-                        tokens[0] = token.substring(1);
-                        indexToken(docId, tokens, evt.target.result, cursor);
-                    };
-                }
+        
+        getter.onsuccess = function(evt) {
+            var object = evt.target.result || {parent_char: [parentId, c], docIds: []};
+            
+            if (object.docIds.indexOf(docId) == -1) {
+            	object.docIds.push(docId);
+            }
+                            
+            var insertion = me.store.put(object);
+            
+            insertion.onerror = function(evt) {
+                console.log("Insertion error", evt, object);
             };
-            getter.onerror = function(evt) {
-                console.log(evt, c, parentId);
+            
+            insertion.onsuccess = function(evt) {
+                tokens[0] = token.slice(1); // Remove first character
+                indexToken(docId, tokens, evt.target.result, cursor);
             };
-        })(me, docId, token, parentId, cursor);
+        };
+        
+        getter.onerror = function(evt) {
+            console.log(evt, c, parentId);
+        };
     }
     
-    this.build = function() {
-    	
+    this.build = function(db) {
     	// create object store for trie
-    	this.store = db.createObjectStore(name, { keyPath: "id", autoIncrement:true });
+    	this.store = db.createObjectStore(name, { keyPath: "id", autoIncrement: true, ifExists: "replace" });
     	console.log("Created Index object store");
 
         // create index on the object store
         this.index = me.store.createIndex(me.indexName, "parent_char", { unique:true, multiEntry:false });
         console.log("Created index for trie");
-        var root_node = {"id": 0, "parent_char": [-1, ''], "docIds": []};
+        var rootNode = {"id": 0, "parent_char": [-1, ''], "docIds": []};
         
-        var insertion = me.store.add(root_node);
+        var insertion = me.store.add(rootNode);
         insertion.onerror = function(evt) {
-            console.log("Failed to insert root node", evt, root_node);
+            console.log("Failed to insert root node", evt, rootNode);
         };
 
     	var keyval = this.objectStore.keyPath;
     	
     	console.log("Iterating through " + me.objectStore.name + " entries...");
-    	//iterate through objectstore
+    	
+    	// iterate through objectstore
     	var opencursor = this.objectStore.openCursor();
     	
 		opencursor.onsuccess = function (evt) {
+			
 			var cursor = evt.target.result;
 			
 			if (cursor) {
 				var text = cursor.value[me.indexField];
 				var docId = cursor.value[keyval];
 
-                //tokenize string
+                // tokenize string
 				var tokens = Object.keys(Lucy.tokenize(text, {disableStemming: true}).tokens);
 				
                 if (me.mode == "suffix") {
@@ -208,9 +218,11 @@ var TrieIndex = function(objStore, name, field, mode, db) {
                 }
                 
                 indexToken(docId, tokens, 0, cursor);
+                
 			} else {
 				console.log("All entries indexed.");        
 			}
+			
 		};
         
 		opencursor.onerror = function (evt) {

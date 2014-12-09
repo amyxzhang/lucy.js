@@ -6,6 +6,9 @@ function $$(expr, con) {
 	return Array.prototype.slice.call((con || document).querySelectorAll(expr));
 }
 
+function now() {
+	return self.performance? performance.now() : Date.now();
+}
 
 var databaseName = "LucyTest";
 var dataFile = "data/tweets.json";
@@ -61,8 +64,6 @@ $('#import-data').onclick = function () {
 };
 
 $('#build-inv-index').onclick = function () {
-	var loadingStatus = $('.loading-status');
-	
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -83,8 +84,6 @@ $('#build-inv-index').onclick = function () {
 };
 
 $('#build-prefix-index').onclick = function () {
-	//var loadingStatus = $('.loading-status');
-	
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -102,12 +101,13 @@ $('#build-prefix-index').onclick = function () {
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
-
+	
+	DBOpenRequest.onblocked = function (evt) {
+		console.error('Database is blocked yo!');
+	}
 };
 
 $('#build-suffix-index').onclick = function () {
-	//var loadingStatus = $('.loading-status');
-	
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -130,7 +130,7 @@ $('#build-suffix-index').onclick = function () {
 };
 
 function search(db, query, objectStore) {
-	var startTime = Date.now();
+	var startTime = now();
 	var type = "inverted";
 	var indexName = objectStore + '_text';
 	
@@ -159,7 +159,7 @@ function search(db, query, objectStore) {
 	
 	request.onsuccess = function(evt) {
 		$('.search-results .count').textContent = request.result.length + ' ';
-		$('.search-results .duration').textContent = (Date.now() - startTime) + 'ms';
+		$('.search-results .duration').textContent = (now() - startTime).toFixed(2) + 'ms';
 		
 		if (request.result.length == 0) {
 			var result = "No results";

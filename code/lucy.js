@@ -42,6 +42,9 @@ Lucy.init = function(db) {
 				
 				cursor.continue();
 			}
+			else {
+				db.close();
+			}
 		};
 	}
 }
@@ -116,6 +119,17 @@ var IDBIndexRequest = function(objStore, transaction) {
 
 IDBIndexRequest.prototype = IDBRequest;
 
+Lucy.helpers = {
+	createObjectStoreIfNotExists: function (transaction, name, optionalParameters) {
+		var db = transaction.db;
+		
+		if (db.objectStoreNames.contains(name)) {
+			return transaction.objectStore(name);
+		}
+		
+		return db.createObjectStore(name, optionalParameters);
+	}
+};
 
 
 /*
@@ -123,140 +137,157 @@ IDBIndexRequest.prototype = IDBRequest;
  */
 
 (function() {
+
+/**
+ * Helper method: Create an object store or replace the existing one if it exists
+ */
+var _createObjectStore = IDBDatabase.prototype.createObjectStore;
+IDBDatabase.prototype.createObjectStore = function(name, optionalParameters) {
+	if (this.objectStoreNames.contains(name)) {
+		// Already exists
+		if (optionalParameters.ifExists == "replace") { // replace
+			// OS already exists, drop it
+			this.deleteObjectStore(name);
+		}
+		else if (optionalParameters.ifExists == "silent") {
+			return null;
+		}
+	}
 	
-    
-    /*
-    Intercept put  
-    Raise DOMException with type DataError if key invalid
-    */
-    var _put = IDBObjectStore.prototype.put;
-    IDBObjectStore.prototype.put = function(item, optionalKey) {
-        return _put.apply(this, arguments);
-    };
+	return _createObjectStore.apply(this, arguments);
+}
 
-    /*
-    Intercept add  
-    Raise DOMException with type DataError if key invalid
-    */
-    var _add = IDBObjectStore.prototype.add;
-    IDBObjectStore.prototype.add = function(item, optionalKey) {
-        return _add.apply(this, arguments);
-    };
+/*
+Intercept put  
+Raise DOMException with type DataError if key invalid
+*/
+var _put = IDBObjectStore.prototype.put;
+IDBObjectStore.prototype.put = function(item, optionalKey) {
+	// TODO
+    return _put.apply(this, arguments);
+};
 
-    /*
-    Intercept delete
-    Raise DOMException with type DataError if key invalid
-    */
-    var _delete = IDBObjectStore.prototype.delete;
-    IDBObjectStore.prototype.delete = function(recordKey) {
-        return _delete.apply(this, arguments);
-    };
-    
-    /*
-    Intercept index  
-    Return index associated with this field
-    Raise DOMException with type DataError if key invalid
-    */
-    var _index = IDBObjectStore.prototype.index;
-    IDBObjectStore.prototype.index = function(field, type) {
-    	
-    	if (type) {
-    		var transaction = this.transaction;
-    		
-    		// Is it cached?
-    		var cached = false;
-    		var indexCache = Lucy.indexCache[type]
-			for (var indexName in indexCache) {
-				var index = indexCache[indexName];
-				
-				if (index && index.objectStore.name == this.name &&
-				    index.indexField == field) {
-				    // Found it!
-				    var cached = true;
-				}
+/*
+Intercept add  
+Raise DOMException with type DataError if key invalid
+*/
+var _add = IDBObjectStore.prototype.add;
+IDBObjectStore.prototype.add = function(item, optionalKey) {
+	// TODO
+    return _add.apply(this, arguments);
+};
+
+/*
+Intercept delete
+Raise DOMException with type DataError if key invalid
+*/
+var _delete = IDBObjectStore.prototype.delete;
+IDBObjectStore.prototype.delete = function(recordKey) {
+	// TODO
+    return _delete.apply(this, arguments);
+};
+
+/*
+Intercept index  
+Return index associated with this field
+Raise DOMException with type DataError if key invalid
+*/
+var _index = IDBObjectStore.prototype.index;
+IDBObjectStore.prototype.index = function(field, type) {
+	
+	if (type) {
+		var transaction = this.transaction;
+		
+		// Is it cached?
+		var cached = false;
+		var indexCache = Lucy.indexCache[type]
+		for (var indexName in indexCache) {
+			var index = indexCache[indexName];
+			
+			if (index && index.objectStore.name == this.name &&
+			    index.indexField == field) {
+			    // Found it!
+			    var cached = true;
 			}
-			
-			if (!cached) {
-				// Fetch from database
-				throw new Error("Your index is not cached yo");
-			}
-			
-			index.objectStore = this;
-			index.transaction = transaction;
+		}
+		
+		if (!cached) {
+			// Fetch from database
+			throw new Error("Your index is not cached yo");
+		}
+		
+		index.objectStore = this;
+		index.transaction = transaction;
 
-			index.index = transaction.objectStore(index.name);
-			
-			return index;
-    	}
-    	
-        return _index.apply(this, arguments);
-    };
-    
-    /*
-    Intercept createIndex
-    indexName - str name for the new index
-    keypath - the key path to use for the index
-    optionalArgs - optional configuration for index
-        unique (preexisting option)
-        multiEntry (preexisting option)
-        type (new option) - specifies which type of index to create
-            ("inverted", "prefix", "suffix", or "btree" allowed)
-    Raise DOMException with type DataError if key invalid
-    Raise DOMException with type ConstraintError if indexName invalid
-    */
-    var _createIndex = IDBObjectStore.prototype.createIndex;
-    IDBObjectStore.prototype.createIndex = function(indexName, keypath, optionalArgs) {
-    	var db = optionalArgs.db;
-    	var type = optionalArgs.type;
-    	
-        if (optionalArgs && type && db) {
-        	// It’s a Lucy index!
-            var language = optionalArgs["language"];
-            if (!language || (SUPPORTED_LANGUAGES.indexOf(language) <= -1)) {
-            	language = "english";
-            }
-            Lucy.language = language = language.toLowerCase();
-            
-            switch (type) {
-            	case "inverted":
-            		var index = new InvIndex(this, indexName, keypath, db, language);
-            		break;
-            	case "prefix":
-            	case "suffix":
-            		var index = new TrieIndex(this, indexName, keypath, optionalArgs.type, db);
-            }
-            
-            index.build();
-            
-            if (!db.objectStoreNames.contains('__LucyIndices')) {
-            	var metaStore = db.createObjectStore('__LucyIndices', {'keyPath': ["store", "path", "type"]});
-            }
-            else {
-            	var metaStore = this.transaction.objectStore("__LucyIndices");
-            }
-            
-            metaStore.put({
-            	store: this.name,
-            	path: keypath,
-            	type: type,
-            	name: indexName
-            });
-            
-            Lucy.indexCache[type] = Lucy.indexCache[type] || {};
-            Lucy.indexCache[type][indexName] = index;
-        } else {
-            return _createIndex.apply(this, arguments);
+		index.index = transaction.objectStore(index.name);
+		
+		return index;
+	}
+	
+    return _index.apply(this, arguments);
+};
+
+/*
+Intercept createIndex
+indexName - str name for the new index
+keypath - the key path to use for the index
+optionalArgs - optional configuration for index
+    unique (preexisting option)
+    multiEntry (preexisting option)
+    type (new option) - specifies which type of index to create
+        ("inverted", "prefix", "suffix", or "btree" allowed)
+Raise DOMException with type DataError if key invalid
+Raise DOMException with type ConstraintError if indexName invalid
+*/
+var _createIndex = IDBObjectStore.prototype.createIndex;
+IDBObjectStore.prototype.createIndex = function(indexName, keypath, optionalArgs) {
+	var db = optionalArgs.db;
+	var type = optionalArgs.type;
+	
+    if (optionalArgs && type && db) {
+    	// It’s a Lucy index!
+        var language = optionalArgs["language"];
+        if (!language || (SUPPORTED_LANGUAGES.indexOf(language) <= -1)) {
+        	language = "english";
         }
-    };
+        Lucy.language = language = language.toLowerCase();
+        
+        switch (type) {
+        	case "inverted":
+        		var index = new InvIndex(this, indexName, keypath, language);
+        		break;
+        	case "prefix":
+        	case "suffix":
+        		var index = new TrieIndex(this, indexName, keypath, optionalArgs.type);
+        }
+        
+        index.build(db);
+        
+        var metaStore = Lucy.helpers.createObjectStoreIfNotExists(this.transaction, '__LucyIndices', { keyPath: ["store", "path", "type"] });
+        
+        metaStore.put({
+        	store: this.name,
+        	path: keypath,
+        	type: type,
+        	name: indexName
+        });
+        
+        Lucy.indexCache[type] = Lucy.indexCache[type] || {};
+        Lucy.indexCache[type][indexName] = index;
+    } else {
+        return _createIndex.apply(this, arguments);
+    }
+};
 
-    /*
-    Intercept deleteIndex
-    Otherwise, call the original deleteIndex method
-    */
-    var _deleteIndex = IDBObjectStore.prototype.deleteIndex;
-    IDBObjectStore.prototype.deleteIndex = function(indexName) {
-    	// TODO as we don't seem to be calling this anywhere right now
-    	// (the previous impl wouldn't work anymore now that index info is persistent)
-        return _deleteIndex.apply(this, arguments);
-    };
+/*
+Intercept deleteIndex
+Otherwise, call the original deleteIndex method
+*/
+var _deleteIndex = IDBObjectStore.prototype.deleteIndex;
+IDBObjectStore.prototype.deleteIndex = function(indexName) {
+	// TODO as we don't seem to be calling this anywhere right now
+	// (the previous impl wouldn't work anymore now that index info is persistent)
+    return _deleteIndex.apply(this, arguments);
+};
+
 })();

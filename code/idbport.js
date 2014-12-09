@@ -15,7 +15,13 @@ indexedDB.import = function (database, src, callback) {
 		if (xhr.readyState == 4 && xhr.status < 400) {
 			ret.onstatusupdate("Loaded JSON file");
 			
-			var data = JSON.parse(xhr.responseText);
+			try {
+				var data = JSON.parse(xhr.responseText);
+			}
+			catch (e) {
+				console.error(e);
+				console.log('Data: ', xhr.responseText);
+			}
 			
 			ret.onstatusupdate("Parsed JSON file");
 			

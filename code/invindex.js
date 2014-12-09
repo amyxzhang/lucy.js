@@ -4,7 +4,7 @@ Constructs an InvIndex for full-text search.
 */
 
 
-var InvIndex = function(objStore, name, field, dbconn, language) {
+var InvIndex = function(objStore, name, field, language) {
 	var me = this;
 	
 	this.objectStore = objStore;
@@ -133,10 +133,10 @@ var InvIndex = function(objStore, name, field, dbconn, language) {
 		};
 	}
     
-    this.build = function() {
+    this.build = function(db) {
     	
     	//create inverted index for field
-    	this.index = dbconn.createObjectStore(name, { keyPath: "token" });
+    	this.index = db.createObjectStore(name, { keyPath: "token", ifExists: "replace" });
     	console.log("Created Index object store");
 
     	var keyval = this.objectStore.keyPath;
