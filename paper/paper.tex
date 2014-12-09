@@ -48,11 +48,11 @@ We also compare the performance of our system with that of fully server side sys
 
 \section{Introduction}
 
-Most applications on the web store the bulk of their data on a backend web server or on the cloud, and the client side queries the server when it needs to access data.
-As web applications have become more interactive and responsive in the past several years, developers have built larger and more complex web servers to support them. However, this separation of data from the client introduces significant network effects that can often lead to noticable latency, as data may be retrieved from servers that are very far away. 
+Most web applications store the bulk of their data on a backend web server or on the cloud, and the client side queries the server when it needs to access data.
+As web applications have become more interactive and responsive in the past several years, developers have built larger and more complex web servers to support them. However, this separation of data from the client introduces significant network effects that can often lead to noticeable latency, as data may be retrieved from servers that are very far away. 
 
-In recent years, more applications have been built that rely more heavily on client-side storage and offload data processing to web browsers. Today most commonly used browsers support the current HTML5 standards, which include a client-side persistent database called IndexedDB that is accessible via a JavaScript API. 
-The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network round trips.
+In recent years, more applications are being built that heavily rely on client-side storage and offload data processing to web browsers. Today most commonly used browsers support the current HTML5 standards, which include a persistent client-side DBMS with the name IndexedDB that is accessible via a set of JavaScript APIs. 
+The ability to use local storage enables real-time interactivity on data-intensive and collaborative tasks by reducing the number of network roundtrips.
 These have been useful for many large and complex web applications such as massive multi-player games CITE that would have previously only existed as desktop applications.
 Issues around privacy and ownership of data have also given rise to a number of applications CITE that move most or all of data storage to the client~\cite{bilenko2011predictive}. 
 Finally, many popular smartphone browsers rely on wireless signals to transmit information, which is prone to failure in areas with poor signal, suggesting that applications that are entirely client-side or applications that retains some functionality during downtime could be useful~\cite{balasubramanian2012findall}.
@@ -63,7 +63,7 @@ Issues of privacy are also important when it comes to social applications and se
 However, while it is possible to store full-text content on the client side, there is still no way to conduct full-text search on the client side at a reasonable speed, preventing most data computation necessary for a fully-featured search engine.
 The current standard of IndexedDB, a key-value store, only supports simple operations such as put and get on set of keys and secondary indexes on object fields. There are no built-in capabilities to create indexes for full-text content. 
 
-In this paper, we introduce Lucy.js, a fully client-side JavaScript search engine that is an extension of the current IndexedDB API CITE. It has been designed to be easy for anyone currently using IndexedDB in their application to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communication. There are also no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known search engines, such as Lucene and within PostgreSQL, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
+In this paper, we introduce Lucy.js, a fully client-side JavaScript search engine that is an extension of the current IndexedDB API CITE. It has been designed to be easy for anyone currently using IndexedDB in their application to begin indexing and searching full-text content, without needing to modify pre-existing code or move to a new framework or mode of communication. There are also no dependencies on a server or on a network, so it can be harnessed offline. In our implementation, we created several types of indexes commonly used in well-known search engines, such as Lucene CITE and within PostgreSQL CITE, including inverted indexes, prefix and suffix tries, and lossy search trees. We discuss how we managed to create these indexes on top of the IndexedDB framework as well as how the different indexes are suited to different tasks. We compare their performance on different types of queries and with different sizes and types of datasets. We find that...
 
 Finally, we imagine the potential real-world use cases for a client-side search engine and how performance may be improved using this system. We implement a set of applications that would be reasonable in the real world and measure performance between fully client-side, fully server-side, and mixtures of both databases to respond to queries. We find that....
 This research demonstrates not only the feasibility of having search engines within the browser but also the potential for new applications and improved performance of existing applications through the additional capabilities provided by a client-side search engine.
@@ -79,16 +79,16 @@ Privacy is also a large concern for applications that collect personal data. Som
 
 With the increased use of mobile phones in recent years, many web applications are now accessed via a smartphone. Here too, studies have shown that many queries to search engines are for re-finding. Using a client-side database is potentially even more impactful for a mobile phone browser because network connectivity is much less robust. Researchers have demonstrated this feasiblity by building a standalone search application for Android~\cite{balasubramanian2012findall}. However, this search engine is not usable with other browsing apps or other phones. Because we build an extension on top of IndexedDB, our search engine will be able to work for all browsers, desktop or mobile, that support IndexedDB, which is the majority of them.
 
-There currently exists some prototypes of client-side search engines. Currently, all existing implementations only create inverted indexes.
+Some prototypes of client-side search engines have previously been built CITE. Currently, all existing implementations only create basic inverted indexes.
 For instance, previous research has demonstrated that it is feasible to store an inverted index within IndexedDB~\cite{lin:jscene} though it is much slower than using a server-side application such as Lucene.
 We improve on these works by implementing different types of indexes for full-text search and comparing their performance. 
-Another existing implementation of a client side search engine called Lunr.js\footnote{http://www.lunrjs.com} store indexes in the client-side memory, which is infeasible for large amounts of data and also non-persistent. Instead, our system uses IndexedDB tables to hold indexes. Also, the YDN-DB module\footnote{https://github.com/yathit/ydn-db-fulltext} which wraps around the IndexedDB API, requires developers to migrate over to use the YDN system. Instead our system is simply an extension of IndexedDB.
+Another existing implementation of a client side search engine called Lunr.js\footnote{http://www.lunrjs.com} stores indexes in the client-side memory, which is infeasible for large amounts of data and also non-persistent. Instead, our system uses IndexedDB object stores to hold indexes. Also, the YDN-DB module\footnote{https://github.com/yathit/ydn-db-fulltext} which wraps around the IndexedDB API, requires developers to migrate over to use the YDN system. Instead our system is simply an extension of IndexedDB.
 We also demonstrate several real-life situations that may call for a hybrid client and server database architecture for full-text search and measure their speed.
 
 
 \section{Architecture and Overview}
 
-In this section, we explain the overall goals and architecture of Lucy.js, how it fits into IndexedDB, as well as give futher details of our implementation. 
+In this section, we explain the overall goals and architecture of Lucy.js, how it fits into IndexedDB, as well as give further details of our implementation. 
 
 \subsection{Goals}
 
@@ -96,11 +96,11 @@ The two main goals of Lucy.js we aimed to achieve while implementing it were: (i
 
 \subsection{IndexedDB}
 
-Indexed Database (IndexedDB) is a Javascript API that was a Proposed Recommendation to the W3C on November 20th 2014~\cite{w3c} and is supported by most modern browsers on the desktop and phone, such as newer versions of Chrome, Firefox, Internet Exploror, Opera, and Safari. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
+Indexed Database (IndexedDB) is a collection of Javascript APIs and is an official W3C specification (Proposed Recommendation stage) ~\cite{w3c}. It is supported by almost every modern browser, both on desktop and mobile devices. Chrome, Firefox, Internet Explorer, Opera, and Safari are only some of the browsers that have added support for IndexedDB in their modern versions. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
 On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, put and get commands using the key, and forward and backward iteration over keys. 
 
 The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specifies what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write lock the specified object stores for the entire duration of the transaction.
-Almost all transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
+All transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
 
 
 \subsection{Extending IndexedDB}
@@ -195,6 +195,31 @@ We looked to many existing implementations of search engines and the indexes the
 \subsection{Inverted Indexes}
 
 \subsection{Prefix and Suffix Tries}
+
+Trie indexes are used to perform prefix and suffix searches on text data. While prefix/suffix search is often used for pattern-matching that matches the entire original text, the trie index in Lucy.js uses tokenization to perform finer-grained searches on multi-word text inputs (like tweet data). Phrase search with tries is also supported. This allows users to search by multiple prefixes or suffixes at a time, and get results with the most matches.
+
+Prefix and suffix tries are implemented using the same design. The only difference between them is that words are reversed before insertion into suffix tries, and similarly, search terms are reversed before they are looked up in the suffix trie. Otherwise, they rely on the same implementation as described below.
+
+A trie index in Lucy.js (prefix or suffix trie) is represented by two underlying entities in IndexedDB: an objects store to save nodes in the trie, and an index on that object store to make trie traversal faster.  A reference to the input object store to be indexed -- which contains the full-text to be searched -- is also saved.
+
+\paragraph{Trie Node Object Store}
+Each entry in the object store represents a different node in the trie. The structure of entries in the object store is as follows:
+\begin{center}
+node\_id: \{ parent\_id: a, char: b, doc\_ids: [x,y,z] \}
+\end{center}
+The key to the object store is the node\_id, and the corresponding value object has three attributes: parent\_id, char, and doc\_ids. The parent\_id attribute is the node id of the parent node in the trie, and the char attribute is the character value for the trie node. The final attribute is doc\_ids, which is a list of keys into the input text object store. The keys in this list are like foreign keys that allow the trie index to retrieve the actual text from the input object store when answering queries. Each path -- and therefore each node -- in the trie represents a unique prefix/suffix. The doc\_ids for a node contains the ids of all documents with that given prefix/suffix. Inserting a word from a given document therefore involves appending that document's id into the doc\_ids of each node along the path corresponding to the word.
+
+\paragraph{Trie Node Index}
+While the structure of the trie node object store optimizes lookups by node id, this is not particularly useful for trie traversal. When traversing down a trie, we would instead like to look up nodes by both their character value and their parent id. It would have been possible to change the design of the trie object store so that each node stored a list of children node ids instead of a single parent id. However, this approach requires each node to store more information, since a list of children ids is saved per node instead of a single parent id. Additionally, we would then need to iterate over this list of children ids in order to find a particular child node with a given character value. With the current object store structure, we can optimize lookups by parent\_id and char by building an index on both these attributes. Overall, the trie index is backed by an object store for node storage and an index on that object store with a compound key of both parent\_id and char.
+
+\paragraph{Lookups}
+Lookups in the trie index are performed by traversing the trie downward, character by character in the search pattern. Partial matches are not accepted; the entire prefix (or suffix) must be present in the trie or no results are returned. If the entire pattern is found, the doc\_ids are extracted from the trie node corresponding to the last letter of the search pattern. These ids are used to key into the input text object store and retrieve the original text data.
+
+\paragraph{Tokenization}
+Unlike with the inverted index, words are not stemmed before insertion or lookups. This is especially important for suffix tries because many suffix searches will not succeed due to stemming of the original text being searched. Tokenization is still used to break up input into words; it is used during both insertion (so that prefix/suffix searches can be done by word), and during lookups (making phrase search possible). Phrase search in tries involves performing prefix/suffix search on each word in the input search phrase, and ranking results by the number of matching patterns in the original text. 
+
+\paragraph{Synchronization}
+Due to the manner in which letters in a word need to be inserted sequentially in a trie, much of IndexedDB's built-in asynchronous behavior cannot be used to improve performance. In fact, the parallelization that IndexedDB introduces can cause serious problems due to collisions between different threads. When testing on tweet data, even inserting two tweets concurrently posed problems because the tweets contained words that started with the same letter. As a result, concurrently-running threads would try to insert duplicate elements, resulting in IndexedDB transaction errors. To avoid this, text is added sequentially to the trie index during creation, and insertion of words occurs sequentially by letter. While this avoids transaction errors, it greatly increases index creation time.
 
 \subsection{Lossy Search Trees}
 
