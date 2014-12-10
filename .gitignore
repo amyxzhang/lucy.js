@@ -1,3 +1,4 @@
+*.pyc
 .project
 data/twitter/training.1600000.processed.noemoticon.csv
 *.pdf
