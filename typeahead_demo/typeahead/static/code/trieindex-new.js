@@ -22,7 +22,8 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 		var ret = new IDBIndexRequest(this.objectStore, this.transaction);
 
 		var tokenCount = Lucy.tokenize(text, {disableStemming: true});
-		var finishCounter = {count: Object.keys(tokenCount.tokens).length};
+		
+		var pendingPaths = {count: 0}
 		
 		for (token in tokenCount.tokens) {
 			var weight = tokenCount.tokens[token];
@@ -31,7 +32,9 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 				token = reverse(token);
 			}
 			
-			getToken(token, docIdsDict, {count: 0}, ret);
+			pendingPaths.count++;
+			
+			getToken(token, docIdsDict, pendingPaths, ret);
 		}
 		
 		return ret;
@@ -39,13 +42,14 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 	
 	// Search for one single prefix
 	function getToken(token, docIdsDict, pendingPaths, ret) {
-		pendingPaths = pendingPaths || {count: 0};
+		pendingPaths = pendingPaths || {count: 1};
 		var getter = me.store.get(token);
 		
 		getter.onsuccess = function (evt) {
 			var node = evt.target.result;
 			
 			if (!node) {
+				pendingPaths.count--;
 				populateResultText(docIdsDict, ret, me.objectStore);
 				return;
 			}
@@ -74,7 +78,6 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 				
 				if (pendingPaths.count === 0) {
 					// We’ve explored the entire subtree, time for results yo!
-					console.log(docIdsDict);
 					populateResultText(docIdsDict, ret, me.objectStore);
 				}
 			}
@@ -146,8 +149,9 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 				}
 			}
 			else {
-				// It’s a leaf!
-				// DocIds: Documents that contain this word as a whole token
+				// DocIds: Documents that contain this word *as a whole token*
+				// Notice that the same document cannot add both docIds and
+				// children to the same node, by definition of what these are.
 				node.docIds = node.docIds || [];
 				
 				if (node.docIds.indexOf(docId) === -1) {
