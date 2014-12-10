@@ -3,6 +3,10 @@ function now() {
 	return self.performance? performance.now() : Date.now();
 }
 
+test_words = ["sleep", "access", "halo", "party", "feel", "better", "fellow", "hair", "car", "knit", "tomorrow", "twitter", "hometown",
+				"skill", "finger", "legal", "body", "day", "email", "friend"];
+
+
 var databaseName = "LucyTest";
 var dataFile = "data/xad";
 var currentDBVersion;
@@ -99,6 +103,63 @@ build_invindex = function () {
 	};
 };
 
+var counter = 0;
+var c_total_time = 0.0;
+var c_total_cnt = 0;
+
+//do a time test
+$('#time-test').click( function () {
+
+	if (search_setting === 1) {
+		total_time = 0.0;
+		total_count = 0;
+		
+		for (var num in test_words) {
+			var query = test_words[num];
+	
+		  	console.log(query);
+		  	
+		  	
+	  		var start = (new Date()).getTime();
+		  	$.ajax({
+		  		url: '/search_fulltext/' + query,
+		  		success: function (data) {
+			        var res = data.options;
+			        var stop = ((new Date()).getTime() - start);
+			        
+			        total_time += stop;
+			        total_count += 1;
+			        console.log(stop);
+			      },
+				async: false
+		    });
+		}
+		$("#timer").text((total_time/total_count) + "ms");
+	}
+	
+
+	if (search_setting === 2) {
+		var start = (new Date()).getTime();
+		
+		var query = test_words[counter];
+		counter++;
+		console.log(query);
+		var index_res = search_client(query);
+		index_res.start = start;
+		index_res.onsuccess = function() {
+			var res = index_res.result.options;
+			var stop = ((new Date()).getTime() - index_res.start);
+			c_total_time += stop;
+	        c_total_cnt += 1;
+	        $("#timer").text((c_total_time/c_total_cnt) + "ms");
+	        console.log(stop);
+		};
+
+	}
+	
+});
+
+
 $(".search").submit(function(evt) {
 	evt.preventDefault();
   	var start = (new Date()).getTime();
@@ -133,7 +194,6 @@ $(".search").submit(function(evt) {
 		var index_res = search_client(query);
 
 		index_res.onsuccess = function() {
-			console.log(index_res);
 			
 			var res = index_res.result.options;
 			var stop = ((new Date()).getTime() - start) + 'ms';

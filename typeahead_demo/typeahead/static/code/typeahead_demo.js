@@ -3,6 +3,10 @@ function now() {
 	return self.performance? performance.now() : Date.now();
 }
 
+
+test_words = ["sleep", "access", "halo", "party", "feel", "better", "fellow", "hair", "car", "knit", "tomorrow", "twitter", "hometown",
+				"skill", "finger", "legal", "body", "day", "email", "friend"];
+
 var databaseName = "LucyTest";
 var dataFile = "data/tweets2.json";
 var currentDBVersion;
@@ -77,6 +81,73 @@ $('#send-data2').click( function () {
 	    }
 	});
 });
+
+var counter = 0;
+var counter2 = 1;
+var c_total_time = 0.0;
+var c_total_cnt = 0;
+
+//do a time test
+$('#time-test').click( function () {
+
+
+	if (search_setting === 1) {
+		total_time = 0.0;
+		total_count = 0;
+		for (var num in test_words) {
+			for (var i = 1; i <= test_words[num].length; i++) {
+				var query = test_words[num].substring(0,i);
+	
+			  	console.log(query);
+			  	
+			  		var start = (new Date()).getTime();
+				  	$.ajax({
+				  		url: '/search/' + query,
+				  		success: function (data) {
+					        var res = data.options;
+					        var stop = ((new Date()).getTime() - start);
+					        
+					        total_time += stop;
+					        total_count += 1;
+					        console.log(stop);
+					      },
+						async: false
+				    });
+				}
+			}
+			$("#timer").text((total_time/total_count) + "ms");
+		}
+			
+		if (search_setting === 2) {
+			var start = (new Date()).getTime();
+			
+			
+			var word = test_words[counter];
+			var query = word.substring(0,counter2);
+			if (counter2 === word.length) {
+				counter++;
+				counter2 = 1;
+			} else {
+				counter2++;
+			}
+			console.log(query);
+			
+			var result = search_client(query);
+			result.start = start;
+			result.onsuccess = function() {
+				var res = result.result.options;
+				var stop = ((new Date()).getTime() - result.start);
+				c_total_time += stop;
+	        	c_total_cnt += 1;
+				console.log(stop);
+				
+				$("#timer").text((c_total_time/c_total_cnt) + "ms");
+			};
+		
+	}
+	
+});
+
  
 $('#the-basics .typeahead').typeahead({
   hint: true,
