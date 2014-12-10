@@ -122,7 +122,6 @@ $('#build-suffix-index').onclick = function () {
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
-			console.log('yolo');
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
@@ -158,20 +157,21 @@ function search(db, query, objectStore) {
 	};
 	
 	request.onsuccess = function(evt) {
+		var duration = now() - startTime;
+		$('.search-results .duration').textContent = duration.toFixed(2) + 'ms';
 		$('.search-results .count').textContent = request.result.length + ' ';
-		$('.search-results .duration').textContent = (now() - startTime).toFixed(2) + 'ms';
 		
 		if (request.result.length == 0) {
 			var result = "No results";
 		} else {
 			var result = request.result.reduce(function(prev, tweet) {
-				return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
-				       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
-				       "</a> Score: " + Math.round(tweet.score *100)/100 + "</li>";
+				return prev + '<article><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
+				       '<footer><a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
+				       '</a> <strong class="score">' + Math.round(tweet.score * 100)/100 + "</strong></article>";
 			}, '');
 		}
 		
-		$('.search-results ul').innerHTML = result;
+		$('.search-results div').innerHTML = result;
 	};
 }
 

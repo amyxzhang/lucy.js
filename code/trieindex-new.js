@@ -81,7 +81,6 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 					populateResultText(docIdsDict, ret, me.objectStore);
 				}
 			}
-			
 		};
 	}
 
@@ -151,7 +150,7 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 			else {
 				// DocIds: Documents that contain this word *as a whole token*
 				// Notice that the same document cannot add both docIds and
-				// children to the same node, by definition of what these are.
+				// children to the same node for the same token
 				node.docIds = node.docIds || [];
 				
 				if (node.docIds.indexOf(docId) === -1) {
@@ -204,10 +203,9 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 		console.log("Iterating through " + me.objectStore.name + " entries...");
 		
 		// iterate through objectstore
-		var opencursor = this.objectStore.openCursor();
+		var cursor = this.objectStore.openCursor();
 		
-		opencursor.onsuccess = function (evt) {
-			
+		cursor.onsuccess = function (evt) {
 			var cursor = evt.target.result;
 			
 			if (cursor) {
@@ -217,13 +215,91 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 				// (even if they haven't completed yet, cause async), so let’s move on to the next document, chop chop!
 				cursor.continue();
 			} else {
-				console.log("All entries indexed.");		
+				console.log("All entries indexed.");
+				//me.shrink();	
 			}
 			
 		};
 		
-		opencursor.onerror = me.onerror;
-	};	
+		cursor.onerror = me.onerror;
+	};
+	
+	this.shrink = function () {
+		console.log('Begin trie shrinking…');
+		
+		var cursor = this.store.openCursor();
+		
+		cursor.onsuccess = function (evt) {
+			var cursor = evt.target.result;
+			
+			if (cursor) {
+				var node = cursor.value;
+				
+				if (node.children && node.children.length == 1 && !node.docIds) {
+					// Collapse this node with its child
+					var parentStep = -(node.parent || 1); // Characters to remove to reach parent key
+					var parentPointer = node.prefix.slice(parentStep); // The pointer the parent has to reach this node
+					var parentPrefix = node.prefix.substr(0, node.prefix.length + parentStep);
+					var childPrefix = node.prefix + node.children[0];
+					
+					//if (/^james/.test(node.prefix)) {
+						//console.log(node.prefix, parentPrefix, childPrefix, parentStep, parentPointer);
+					//}
+					
+					// Go to parent and modify the pointer to this child to point to the grandchild instead
+					me.store.get(parentPrefix).onsuccess = function (evt) {
+						var parent = evt.target.result;
+						
+						if (parent && parent.children) {
+							var i = parent.children.indexOf(parentPointer);
+							
+							if (i > -1) {
+								parent.children[i] = parentPointer + node.children[0];
+								
+								me.store.put(parent).onsuccess = function () {
+									// Go to child and increment its parent step
+									me.store.get(childPrefix).onsuccess = function (evt) {
+										var child = evt.target.result;
+										
+										if (child) {
+											child.parent = child.parent + 1 || 2;
+											
+											if (node.parent > 1) child.parent += node.parent - 1;
+											
+											me.store.put(child).onsuccess = function (evt) {
+												// These steps cannot be done in parallel, because
+												// then subsequent shrinkage fails, because nodes cannot
+												// locate their parent without correct parent step info
+												cursor.continue();
+											}
+										}
+									}
+								}
+							}
+							else {
+								throw new Error("Can't find " + node.prefix + " in the children of " + parentPrefix);
+							}
+						}
+						else {
+							throw new Error("Can't find parent of " + node.prefix + ". I tried " + parentPrefix + " but no avail");
+						}
+					}
+					
+					// Delete this node, as it’s not needed any more
+					me.store.delete(node.prefix);
+				}
+				else {
+					cursor.continue();
+				}
+			} else {
+				// cursor done
+				console.log('Shrinkage done!');	
+			}
+			
+		};
+		
+		cursor.onerror = me.onerror;
+	}
 	
 	// Generic error handler, so we don't litter our code with separate ones all over
 	this.onerror = function (evt) {
