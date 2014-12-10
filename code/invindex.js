@@ -99,7 +99,6 @@ var InvIndex = function(objStore, name, field, language) {
 		    					result_dict[result.id] = result; 					
 		    				}
 		    				if (check_done()) {
-		    					var weighted_results;
 		    					if (me.enablePosition) {
 		    						Lucy.calculateCoverDensity(result_dict, me.normalization);
 		    					} else {
