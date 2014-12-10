@@ -72,47 +72,14 @@ $('#send-data2').click( function () {
 	    	
 	    	ret.onsuccess = function () {
 	     		console.log("Everything inserted");
-	     		build_prefix();
+	     		build_invindex();
 	     };
 	    }
 	});
 });
- 
-$('#the-basics .typeahead').typeahead({
-  hint: true,
-  highlight: true,
-  minLength: 1
-},
-{
-  name: 'states',
-  displayKey: 'value',
-  source: function (query, process) {
-  	var start = (new Date()).getTime();
-  	
-  	if (search_setting === 1) {
-	  	$.get('/search/' + query, {}, function (data) {
-	        var res = process(data.options);
-	        var stop = ((new Date()).getTime() - start) + 'ms';
-	        console.log(stop);
-	        $("#timer").text(stop);
-	        return res;
-	    });
-	}
-	if (search_setting === 2) {
-		var result = search_client(query);
-		result.onsuccess = function() {
-			console.log(result);
-			var res = process(result.result.options);
-			var stop = ((new Date()).getTime() - start) + 'ms';
-			$("#timer").text(stop);
-		    return res;
-		};
 
-	}
-  }
-});
 
-build_prefix = function() {
+build_invindex = function () {
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -123,18 +90,72 @@ build_prefix = function() {
 		var objectStore = transaction.objectStore("tweets");
 		
 		// field to create index on
-		objectStore.createIndex("tweets_text_prefix", "text", {type: "prefix", db: evt.target.result});
+		objectStore.createIndex("tweets_text", "text", {type: "inverted", db: evt.target.result});
 	};
 	
 	DBOpenRequest.onsuccess = function(evt) {
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
-	
-	DBOpenRequest.onblocked = function (evt) {
-		console.error('Database is blocked yo!');
-	};
 };
+
+$(".search").submit(function(evt) {
+	evt.preventDefault();
+  	var start = (new Date()).getTime();
+  	console.log(search_setting);
+  	
+  	var query = $('#search-query').val();
+  	
+  	if (search_setting === 1) {
+	  	$.get('/search_fulltext/' + query, {}, function (data) {
+	        var res = data.options;
+	        var stop = ((new Date()).getTime() - start) + 'ms';
+	        console.log(stop);
+	        
+	        console.log(res);
+	        $('.search-results .count').text(res.length + ' ');
+			$('.search-results .duration').text(stop);
+			
+			if (res.length == 0) {
+				var result = "No results";
+			} else {
+				var result = res.reduce(function(prev, tweet) {
+					return prev + "<li>" + tweet.value + "</li>";
+				}, '');
+			}
+			
+			$('.search-results ul').html(result);
+	        
+	        
+	    });
+	}
+	if (search_setting === 2) {
+		var index_res = search_client(query);
+
+		index_res.onsuccess = function() {
+			console.log(index_res);
+			
+			var res = index_res.result.options;
+			var stop = ((new Date()).getTime() - start) + 'ms';
+	        $('.search-results .count').text(res.length + ' ');
+			$('.search-results .duration').text(stop);
+			
+			if (res.length == 0) {
+				var result = "No results";
+			} else {
+				var result = res.reduce(function(prev, tweet) {
+					return prev + "<li>" + tweet.value + "</li>";
+				}, '');
+			}
+			
+			$('.search-results ul').html(result);
+	        
+	        
+		};
+
+	}
+	return false;
+});
 
 search_client = function(searchQuery) {
 	var ret = {
@@ -147,13 +168,13 @@ search_client = function(searchQuery) {
 		var db = event.target.result;
 		
 	
-		var transaction = db.transaction(["tweets", 'tweets_text_prefix'], "readonly");
+		var transaction = db.transaction(["tweets", 'tweets_text'], "readonly");
 		var objectStore = transaction.objectStore("tweets");
 
-		var index = objectStore.index("text", "prefix");
+		var index = objectStore.index("text", "inverted");
 	
 		// get returns a single entry (one with lowest key value)
-		var request = index.get(searchQuery.replace(/%/g, ''));
+		var request = index.get(searchQuery);
 	
 		request.onerror = function(evt) {
 			console.error(evt, searchQuery);

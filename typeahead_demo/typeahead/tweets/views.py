@@ -10,12 +10,28 @@ import json
 
 # Create your views here.
 
-def home(request):
+def demo1(request):
     return render_to_response('typeahead_demo.html')
+
+def demo2(request):
+    return render_to_response('fulltextsearch_demo.html')
 
 def query(request, query):
     try:
         tweets = Tweet.objects.extra(where=["`tweets_tweet`.`text` LIKE \"%%" + query + "%%\""])
+        result = {"options": []}
+        for tweet in tweets:
+            print tweet
+            result["options"].append({"value": tweet.text})
+    except Exception, e:
+        print e
+    
+    return HttpResponse(json.dumps(result), content_type="application/json")
+
+
+def query_fulltext(request, query):
+    try:
+        tweets = Tweet.objects.filter(text__search=query)
         result = {"options": []}
         for tweet in tweets:
             print tweet

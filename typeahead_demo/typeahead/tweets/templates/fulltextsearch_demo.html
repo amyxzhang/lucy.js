@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="utf-8" />
+<title>Lucy.js demo</title>
+<link rel="stylesheet" href="/static/style.css" />
+<script src="/static/code/third-party/jquery.min.js"></script>
+<script src="/static/code/third-party/typeahead.js"></script>
+
+</head>
+<body>
+
+<header>
+	<h1>Lucy.js</h1>
+	<p>Lucy.js enables fast full-text searching on any indexedDB database and supports several different index types.</p>
+</header>
+
+<section id="demo">
+	<h1>Full-Text Search</h1>
+	
+	<button id="delete-data">Delete All Data in Client and Server</button>
+	<P>
+	<button id="send-data1">Load All Data to Server</button>
+	<button id="send-data2">Load All Data to Client</button>
+	<P>
+	
+	<form class="search">
+		<input type="search" id="search-query" placeholder="Search Query">
+		<button type="submit" id="submit-search">Search</button>
+	</form>
+	
+	<section class="search-results">
+		<h1><strong class="count"> </strong>Search results <span class="duration"></span></h1>
+		<ul></ul>
+	</section>
+	
+</section>
+
+<footer>
+	A project by Amy Zhang, Lea Verou, Manali Naik • <a href="https://github.com/amyxzhang/lucy.js" target="_blank">Github</a>
+</footer>
+
+
+<script src="/static/code/lucy.js"></script>
+<script src="/static/code/stopwords/english_stopwords.js"></script>
+<script src="/static/code/third-party/Snowball.min.js"></script>
+<script src="/static/code/invindex.js"></script>
+<script src="/static/code/trieindex-new.js"></script>
+<script src="/static/code/idbport.js"></script>
+<script src="/static/code/fulltext_demo.js"></script>
+
+</body>
+</html>
