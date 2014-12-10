@@ -4,7 +4,7 @@ function now() {
 }
 
 var databaseName = "LucyTest";
-var dataFile = "data/tweets2.json";
+var dataFile = "data/xad";
 var currentDBVersion;
 
 var search_setting;

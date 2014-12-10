@@ -4,7 +4,7 @@ from django.contrib import admin
 urlpatterns = patterns('',
     # Examples:
     
-    
+    url(r'^$', 'tweets.views.index'),
     url(r'^demo1', 'tweets.views.demo1'),
     url(r'^demo2', 'tweets.views.demo2'),
     

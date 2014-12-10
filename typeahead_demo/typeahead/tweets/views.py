@@ -10,6 +10,9 @@ import json
 
 # Create your views here.
 
+def index(request):
+    return render_to_response('index.html')
+
 def demo1(request):
     return render_to_response('typeahead_demo.html')
 
@@ -44,7 +47,7 @@ def query_fulltext(request, query):
 
 def get_tweets(request):
     try:
-        file = open(os.path.join(PROJECT_ROOT, 'tweets2.json'))
+        file = open(os.path.join(PROJECT_ROOT, 'xad'))
     except Exception, e:
         print e    
 
@@ -62,11 +65,11 @@ def delete_tweets(request):
 
 def insert_tweets1(request):
     try:
-        file = open(os.path.join(PROJECT_ROOT, 'tweets2.json'))
+        file = open(os.path.join(PROJECT_ROOT, 'xad'))
         tweets = json.loads(file.read())
         tweets = tweets["tweets"]
         for tweet in tweets:
-            t = Tweet.objects.create(tweetid=tweet['id'], text=tweet['text'], username=tweet['username'])
+            t = Tweet.objects.create(tweetid=tweet['id'], text=tweet['text'].encode('ascii', "ignore"), username=tweet['username'])
     except Exception, e:
         print e    
 
