@@ -64,7 +64,7 @@ Lucy.tokenize = function(string, options) {
 	if (!options.disableStemming) {
 		var stemmer = Lucy.stemmer(Lucy.language);
 	}
-					  
+
 	for (var i=0; i<tokens.length; i++) {
 		var stem = options.disableStemming? tokens[i] : stemmer(tokens[i]);
 		
@@ -78,6 +78,50 @@ Lucy.tokenize = function(string, options) {
 	
 	return tokenCount.length > 0? tokenCount: stopwordCount;
 };
+
+// optionalArgs.types
+//  1 - include document length (after tokenization)
+//  2 - include number of uniqueWords
+Lucy.normalize = function(objectStore, indexField, optionalArgs) {
+    var keyval = objectStore.keyPath;
+    var opencursor = objectStore.openCursor();
+    opencursor.onsuccess = function (evt) {	
+        var cursor = evt.target.result;
+        
+        if (cursor) {
+            var updateObj = cursor.value;
+            var text = updateObj[indexField];
+            var types = optionalArgs.types;
+            if (optionalArgs && types) {
+                var metadata = Lucy.getTextMetadata(text);
+                if (1 in types)
+                    updateObj.length = metadata.length;
+                if (2 in types)
+                    updateObj.uniqueWords = metadata.uniqueWords;
+                var insertion = objectStore.put(updateObj);
+				insertion.onerror = function(evt) {
+					console.log(evt, updateObj);
+				};
+            }            
+            cursor.continue();
+        } else {
+            console.log("All text normalized.");        
+        } 
+    };
+    
+    opencursor.onerror = function (evt) {
+        console.log(evt);
+    };
+};
+
+Lucy.getTextMetadata = function(text) {
+    var metadata = {uniqueWords: 0, length: 0};
+    var tokenCount = Lucy.tokenize(text);
+    metadata.uniqueWords = Object.keys(tokenCount.tokens).length;
+    metadata.length = tokenCount.length;
+    console.log(metadata);
+    return metadata;
+}
 
 Lucy.isStopWord = function(word) {
 	return Lucy.stopwords.indexOf(word) > -1;

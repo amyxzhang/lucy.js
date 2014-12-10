@@ -225,6 +225,8 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
     }
     
     this.build = function(db) {
+        Lucy.normalize(this.objectStore, me.indexField, {types: [1,2]});        
+        
     	// create object store for trie
     	this.store = db.createObjectStore(name, { keyPath: "id", autoIncrement: true, ifExists: "replace" });
     	console.log("Created Index object store");
