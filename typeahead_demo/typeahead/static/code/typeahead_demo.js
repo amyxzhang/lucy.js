@@ -3,6 +3,10 @@ function now() {
 	return self.performance? performance.now() : Date.now();
 }
 
+
+test_words = ["sleep", "access", "halo", "party", "feel", "better", "fellow", "hair", "car", "knit", "tomorrow", "twitter", "hometown",
+				"skill", "finger", "legal", "body", "day", "email", "friend"];
+
 var databaseName = "LucyTest";
 var dataFile = "data/tweets2.json";
 var currentDBVersion;
@@ -77,6 +81,53 @@ $('#send-data2').click( function () {
 	    }
 	});
 });
+
+//do a time test
+$('#time-test').click( function () {
+
+	total_time = 0.0;
+	total_count = 0;
+	for (var num in test_words) {
+		for (var i = 1; i <= test_words[num].length; i++) {
+			var query = test_words[num].substring(0,i);
+
+		  	console.log(query);
+		  	if (search_setting === 1) {
+		  		var start = (new Date()).getTime();
+			  	$.ajax({
+			  		url: '/search/' + query,
+			  		success: function (data) {
+				        var res = data.options;
+				        var stop = ((new Date()).getTime() - start);
+				        
+				        total_time += stop;
+				        total_count += 1;
+				        console.log(stop);
+				      },
+					async: false
+			    });
+			}
+			if (search_setting === 2) {
+				var start = (new Date()).getTime();
+				
+				var result = search_client(query);
+				result.start = start;
+				result.onsuccess = function() {
+					var res = result.result.options;
+					var stop = ((new Date()).getTime() - result.start);
+					total_time += stop;
+			        total_count += 1;
+					console.log(stop);
+					
+					
+				};
+		
+			}
+		}
+	}
+	$("#timer").text((total_time/total_count) + "ms");
+});
+
  
 $('#the-basics .typeahead').typeahead({
   hint: true,
