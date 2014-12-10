@@ -7,6 +7,8 @@ var databaseName = "LucyTest";
 var dataFile = "data/tweets2.json";
 var currentDBVersion;
 
+var search_setting;
+
 (function() {
 	// Init
 	loadDBVersion();
@@ -50,16 +52,30 @@ $('#delete-data').click( function () {
 });
 
 //Send all data to server
-$('#send-data1').click( function () {
-			
+$('#send-data1').click( function () {	
+	search_setting = 1;	
 	$.ajax({
 	    url: "insert_tweets1",
-	    
 	    success: function(){
 	      console.log("Everything inserted");
 	    }
 	});
-	
+});
+
+//get all data from client
+$('#send-data2').click( function () {
+	search_setting = 2;		
+	$.ajax({
+	    url: "get_tweets",
+	    success: function(data){
+	    	var ret = indexedDB.import_data(databaseName, data);
+	    	
+	    	ret.onsuccess = function () {
+	     		console.log("Everything inserted");
+	     		build_prefix();
+	     };
+	    }
+	});
 });
  
 $('#the-basics .typeahead').typeahead({
@@ -71,10 +87,28 @@ $('#the-basics .typeahead').typeahead({
   name: 'states',
   displayKey: 'value',
   source: function (query, process) {
-  	return $.get('/search/' + query, {}, function (data) {
-  		console.log(data);
-            return process(data.options);
-        });
+  	var start = (new Date()).getTime();
+  	
+  	if (search_setting === 1) {
+	  	$.get('/search/' + query, {}, function (data) {
+	        var res = process(data.options);
+	        var stop = ((new Date()).getTime() - start) + 'ms';
+	        console.log(stop);
+	        $("#timer").text(stop);
+	        return res;
+	    });
+	}
+	if (search_setting === 2) {
+		var result = search_client(query);
+		result.onsuccess = function() {
+			console.log(result);
+			var res = process(result.result.options);
+			var stop = ((new Date()).getTime() - start) + 'ms';
+			$("#timer").text(stop);
+		    return res;
+		};
+
+	}
   }
 });
 
@@ -97,27 +131,8 @@ $('#import-data').click(function () {
 	};	
 });
 
-$('#build-inv-index').click(function () {
-	incrementDBVersion();
-	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
-	DBOpenRequest.onupgradeneeded = function(evt) {
-		var transaction = evt.target.transaction;
-		
-		// table to create index on
-		var objectStore = transaction.objectStore("tweets");
-		
-		// field to create index on
-		objectStore.createIndex("tweets_text", "text", {type: "inverted", db: evt.target.result});
-	};
-	
-	DBOpenRequest.onsuccess = function(evt) {
-		evt.target.result.close();
-		console.log('Finished creating index.');
-	};
-});
-
-$('#build-prefix-index').click(function () {
+build_prefix = function() {
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -138,97 +153,51 @@ $('#build-prefix-index').click(function () {
 	
 	DBOpenRequest.onblocked = function (evt) {
 		console.error('Database is blocked yo!');
-	}
-});
+	};
+};
 
-$('#build-suffix-index').click( function () {
-	incrementDBVersion();
-	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
-
-	DBOpenRequest.onupgradeneeded = function(evt) {
-		var transaction = evt.target.transaction;
-		
-		// table to create index on
-		var objectStore = transaction.objectStore("tweets");
-		
-		// field to create index on
-		objectStore.createIndex("tweets_text_suffix", "text", {type: "suffix", db: evt.target.result});
+search_client = function(searchQuery) {
+	var ret = {
+		onsuccess: function(){},
 	};
 	
-	DBOpenRequest.onsuccess = function(evt) {
-			console.log('yolo');
-		evt.target.result.close();
-		console.log('Finished creating index.');
-	};
-
-});
-
-function search(db, query, objectStore) {
-	var startTime = now();
-	var type = "inverted";
-	var indexName = objectStore + '_text';
-	
-	if (/%$/.test(query)) { // Ends with %?
-		// Prefix search
-		type = "prefix";
-		indexName += '_' + type;
-	}
-	else if (query.indexOf('%') === 0) { // Starts with %?
-		// Suffix search
-		type = "suffix"
-		indexName += '_' + type;
-	}
-	
-	var transaction = db.transaction([objectStore, indexName], "readonly");
-	var objectStore = transaction.objectStore("tweets");
-
-	var index = objectStore.index("text", type);
-	
-	// get returns a single entry (one with lowest key value)
-	var request = index.get(query.replace(/%/g, ''));
-	
-	request.onerror = function(evt) {
-		console.error(evt, query);
-	};
-	
-	request.onsuccess = function(evt) {
-		$('.search-results .count').textContent = request.result.length + ' ';
-		$('.search-results .duration').textContent = (now() - startTime).toFixed(2) + 'ms';
-		
-		if (request.result.length == 0) {
-			var result = "No results";
-		} else {
-			var result = request.result.reduce(function(prev, tweet) {
-				return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
-				       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
-				       "</a> Score: " + Math.round(tweet.score *100)/100 + "</li>";
-			}, '');
-		}
-		
-		$('.search-results ul').innerHTML = result;
-	};
-}
-
-
-// TODO This needs to use the other types of indices as well.
-$(".search").submit( function () {
-	
-	var searchQuery = $('#search-query', this).value;
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 	
 	DBOpenRequest.onsuccess = function(evt) {
 		var db = event.target.result;
 		
-		search(db, searchQuery, 'tweets');
-				
+	
+		var transaction = db.transaction(["tweets", 'tweets_text_prefix'], "readonly");
+		var objectStore = transaction.objectStore("tweets");
+
+		var index = objectStore.index("text", "prefix");
+	
+		// get returns a single entry (one with lowest key value)
+		var request = index.get(searchQuery.replace(/%/g, ''));
+	
+		request.onerror = function(evt) {
+			console.error(evt, searchQuery);
+		};
+	
+		request.onsuccess = function(evt) {
+			var res = {options: []};
+			
+			for (tweet in request.result) {
+				res.options.push({value: request.result[tweet].text});
+			}
+			ret.result = res;
+			ret.onsuccess();
+	
+		};
 		db.close();
+		
 	};
 	
 	DBOpenRequest.onerror = function(evt) {
 		console.log(evt);
 	};
 	
-	return false;
-});
+	return ret;
+};
 
 

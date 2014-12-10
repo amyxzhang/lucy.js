@@ -1,3 +1,65 @@
+indexedDB.import_data = function(database, data) {
+	var ret = {
+		onsuccess: function(){},
+	};
+	
+	self.db = undefined;
+	
+	console.log('here');
+			
+	indexedDB.deleteDatabase(database).onsuccess = function(evt) {
+		var DBOpenRequest = indexedDB.open(database);
+		
+		DBOpenRequest.onsuccess = function (evt) {
+			Object.keys(data).forEach(function(id) {
+				if (id != "__meta") {
+					var count = data[id].length;
+					
+					console.log("Loading data in " + id + " (" + count + " objects total)…");
+					
+					var transaction = db.transaction(id, "readwrite").objectStore(id);
+					
+					data[id].forEach(function(o, i) {
+						if ((i+1) % ~~(count/10) === 0 && count > 100) {
+							// For large datasets, offer feedback every 10% of imported data
+							console.log("Loading data in " + id + " (" + (i+1) + " of " + count + ")…");
+						}
+						
+						try { 
+							transaction.add(o);
+						}
+						catch (e) {
+							console.error(e, o);
+						}
+					});
+					
+					console.log("Loaded data in " + id + ".");
+				}
+			});
+			
+			ret.onsuccess();
+					
+			evt.target.result.close();
+		};
+		
+		DBOpenRequest.onupgradeneeded = function (evt) {
+			db = this.result;
+			console.log("Creating object stores…");
+			
+			Object.keys(data).forEach(function(id) {
+				if (id != "__meta") {
+					db.createObjectStore(id, data['__meta'][id]);
+				}
+			});
+			
+			console.log("Created object stores.");
+		};
+	};
+	return ret;
+};
+
+
+
 indexedDB.import = function (database, src, callback) {
 	var ret = {
 		// Caller will override these if needed

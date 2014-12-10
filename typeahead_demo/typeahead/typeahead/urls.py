@@ -12,5 +12,7 @@ urlpatterns = patterns('',
     url(r'^insert_tweets1', 'tweets.views.insert_tweets1'),
     url(r'^delete_tweets', 'tweets.views.delete_tweets'),
     
+    url(r'^get_tweets', 'tweets.views.get_tweets'),
+    
     url(r'^admin/', include(admin.site.urls)),
 )

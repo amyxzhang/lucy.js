@@ -16,8 +16,6 @@ def home(request):
 def query(request, query):
     try:
         tweets = Tweet.objects.extra(where=["`tweets_tweet`.`text` LIKE \"%%" + query + "%%\""])
-        print tweets.query
-        print tweets
         result = {"options": []}
         for tweet in tweets:
             print tweet
@@ -26,6 +24,16 @@ def query(request, query):
         print e
     
     return HttpResponse(json.dumps(result), content_type="application/json")
+
+
+def get_tweets(request):
+    try:
+        file = open(os.path.join(PROJECT_ROOT, 'tweets2.json'))
+    except Exception, e:
+        print e    
+
+    return HttpResponse(file.read(), content_type="application/json")
+
 
 def delete_tweets(request):
     print "deleting tweets"
@@ -42,7 +50,6 @@ def insert_tweets1(request):
         tweets = json.loads(file.read())
         tweets = tweets["tweets"]
         for tweet in tweets:
-            print tweet
             t = Tweet.objects.create(tweetid=tweet['id'], text=tweet['text'], username=tweet['username'])
     except Exception, e:
         print e    
