@@ -50,6 +50,8 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+
 ROOT_URLCONF = 'typeahead.urls'
 
 WSGI_APPLICATION = 'typeahead.wsgi.application'
@@ -60,8 +62,12 @@ WSGI_APPLICATION = 'typeahead.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': "typeahead",
+        'USER': 'admin',
+        'PASSWORD': 'koobkoob',
+        'HOST': 'localhost',   # Or an IP Address that your DB is hosted on
+        'PORT': '3306',
     }
 }
 

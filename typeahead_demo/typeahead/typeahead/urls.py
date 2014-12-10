@@ -7,9 +7,9 @@ urlpatterns = patterns('',
     
     url(r'^$', 'tweets.views.home'),
     
-    url(r'^search/(?P<query>[\w-]+)', 'tweets.views.query'),
+    url(r'^search/(?P<query>.+)', 'tweets.views.query'),
     
-    url(r'^insert_tweets', 'tweets.views.insert_tweets'),
+    url(r'^insert_tweets1', 'tweets.views.insert_tweets1'),
     url(r'^delete_tweets', 'tweets.views.delete_tweets'),
     
     url(r'^admin/', include(admin.site.urls)),

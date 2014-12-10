@@ -193,3 +193,14 @@ footer {
 	.search-results .duration::after {
 		content: ')';
 	}
+	
+#the-basics .typeahead {
+	width: 700px;
+	height: 40px;
+}
+
+#filler {
+	display: block;
+	height: 600px;
+	width: 600px;
+}

@@ -5,6 +5,8 @@
 <meta charset="utf-8" />
 <title>Lucy.js demo</title>
 <link rel="stylesheet" href="/static/style.css" />
+<script src="/static/code/third-party/jquery.min.js"></script>
+<script src="/static/code/third-party/typeahead.js"></script>
 
 </head>
 <body>
@@ -16,6 +18,24 @@
 
 <section id="demo">
 	<h1>Typeahead Demo</h1>
+	
+	<button id="delete-data">Delete All Data in Client and Server</button>
+	<P>
+	<button id="send-data1">Load All Data to Server</button>
+	<P>
+	
+	<div id="the-basics">
+	  <input class="typeahead" type="text" placeholder="Search Tweets Here">
+	</div>
+		
+	<div id="filler"></div>
+	<!--
+	<P></P>
+		<P></P>
+	<button id="delete-data">Load 1 character results in client</button>
+	<P>
+	<button id="delete-data">Load 2 character results in client</button>
+	
 	<button id="import-data">Import Data</button>
 	<button id="build-inv-index">Build Inverted Index</button>
     <button id="build-prefix-index">Build Prefix Tree Index</button>
@@ -32,11 +52,14 @@
 		<ul></ul>
 	</section>
 	
+	-->
+	
 </section>
 
 <footer>
 	A project by Amy Zhang, Lea Verou, Manali Naik • <a href="https://github.com/amyxzhang/lucy.js" target="_blank">Github</a>
 </footer>
+
 
 <script src="/static/code/lucy.js"></script>
 <script src="/static/code/stopwords/english_stopwords.js"></script>
@@ -44,7 +67,7 @@
 <script src="/static/code/invindex.js"></script>
 <script src="/static/code/trieindex-new.js"></script>
 <script src="/static/code/idbport.js"></script>
-<script src="/static/code/demo.js"></script>
+<script src="/static/code/typeahead_demo.js"></script>
 
 </body>
 </html>

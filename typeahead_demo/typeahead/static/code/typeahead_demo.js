@@ -1,17 +1,10 @@
-function $(expr, con) {
-	return typeof expr === 'string'? (con || document).querySelector(expr) : expr;
-}
-
-function $$(expr, con) {
-	return Array.prototype.slice.call((con || document).querySelectorAll(expr));
-}
 
 function now() {
 	return self.performance? performance.now() : Date.now();
 }
 
 var databaseName = "LucyTest";
-var dataFile = "data/xad";
+var dataFile = "data/tweets2.json";
 var currentDBVersion;
 
 (function() {
@@ -45,7 +38,48 @@ function resetDBVersion() {
 	localStorage.setItem(key, 1);
 }
 
-$('#import-data').onclick = function () {
+$('#delete-data').click( function () {
+	indexedDB.deleteDatabase(databaseName);
+	
+	$.ajax({
+	    url: "delete_tweets",
+	    success: function(){
+	      console.log("Everything deleted");
+	    }
+	});
+});
+
+//Send all data to server
+$('#send-data1').click( function () {
+			
+	$.ajax({
+	    url: "insert_tweets1",
+	    
+	    success: function(){
+	      console.log("Everything inserted");
+	    }
+	});
+	
+});
+ 
+$('#the-basics .typeahead').typeahead({
+  hint: true,
+  highlight: true,
+  minLength: 1
+},
+{
+  name: 'states',
+  displayKey: 'value',
+  source: function (query, process) {
+  	return $.get('/search/' + query, {}, function (data) {
+  		console.log(data);
+            return process(data.options);
+        });
+  }
+});
+
+
+$('#import-data').click(function () {
 	var me = this;
 	resetDBVersion();
 	
@@ -61,9 +95,9 @@ $('#import-data').onclick = function () {
 		loadingStatus.textContent = '';
 		me.classList.add('done');
 	};	
-};
+});
 
-$('#build-inv-index').onclick = function () {
+$('#build-inv-index').click(function () {
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -81,9 +115,9 @@ $('#build-inv-index').onclick = function () {
 		evt.target.result.close();
 		console.log('Finished creating index.');
 	};
-};
+});
 
-$('#build-prefix-index').onclick = function () {
+$('#build-prefix-index').click(function () {
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -105,9 +139,9 @@ $('#build-prefix-index').onclick = function () {
 	DBOpenRequest.onblocked = function (evt) {
 		console.error('Database is blocked yo!');
 	}
-};
+});
 
-$('#build-suffix-index').onclick = function () {
+$('#build-suffix-index').click( function () {
 	incrementDBVersion();
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
 
@@ -127,7 +161,7 @@ $('#build-suffix-index').onclick = function () {
 		console.log('Finished creating index.');
 	};
 
-};
+});
 
 function search(db, query, objectStore) {
 	var startTime = now();
@@ -177,7 +211,7 @@ function search(db, query, objectStore) {
 
 
 // TODO This needs to use the other types of indices as well.
-$(".search").onsubmit = function () {
+$(".search").submit( function () {
 	
 	var searchQuery = $('#search-query', this).value;
 	var DBOpenRequest = indexedDB.open(databaseName, currentDBVersion);
@@ -195,6 +229,6 @@ $(".search").onsubmit = function () {
 	};
 	
 	return false;
-};
+});
 
 
