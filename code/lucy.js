@@ -119,7 +119,6 @@ Lucy.getTextMetadata = function(text) {
     var tokenCount = Lucy.tokenize(text);
     metadata.uniqueWords = Object.keys(tokenCount.tokens).length;
     metadata.length = tokenCount.length;
-    console.log(metadata);
     return metadata;
 }
 
