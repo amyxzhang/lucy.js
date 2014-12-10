@@ -24,7 +24,6 @@ def query(request, query):
         tweets = Tweet.objects.extra(where=["`tweets_tweet`.`text` LIKE \"%%" + query + "%%\""])
         result = {"options": []}
         for tweet in tweets:
-            print tweet
             result["options"].append({"value": tweet.text})
     except Exception, e:
         print e
@@ -37,7 +36,6 @@ def query_fulltext(request, query):
         tweets = Tweet.objects.filter(text__search=query)
         result = {"options": []}
         for tweet in tweets:
-            print tweet
             result["options"].append({"value": tweet.text})
     except Exception, e:
         print e

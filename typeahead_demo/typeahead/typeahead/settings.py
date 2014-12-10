@@ -64,7 +64,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': "typeahead",
-        'USER': 'admin',
+        'USER': 'root',
         'PASSWORD': 'koobkoob',
         'HOST': 'localhost',   # Or an IP Address that your DB is hosted on
         'PORT': '3306',
@@ -90,4 +90,4 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
-
+STATIC_ROOT = '/static_files/'
