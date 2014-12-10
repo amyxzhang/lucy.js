@@ -14,12 +14,13 @@ var InvIndex = function(objStore, name, field, language) {
 	this.language = language;
 	this.indexField = field;
 	this.unique = false;
+	this.normalization = 1;
+	this.enablePosition = true;
 	
     // Perform index search for a phrase
     this.get = function(text) {
     	var ret = new IDBIndexRequest(this.objectStore, this.transaction);
     	var result_ids;
-    	var objStore = this.objectStore;
     	
     	var tokenCount = Lucy.tokenize(text);
     	
@@ -30,20 +31,23 @@ var InvIndex = function(objStore, name, field, language) {
     		finish_counter[token] = undefined;
     		finish_counter.count++;
     	}
-    	
+    	    	
 		var check_done = function() {
-			if (finish_counter.count == 0) return true;
 			for (var vals in finish_counter) {
 				if (finish_counter[vals] != 0) {
 					return false;
 				}
 			}
-			return true;
+			if (finish_counter.count == 0) {
+				return true;
+			} else {
+				return false;
+			}
 		};
 
     	for (var token in tokenCount.tokens) {
     		var request = this.index.get(token);
-    		var weight = tokenCount.tokens[token];
+    		
     		request.onerror = function(evt) {
     			console.log(evt, token);
     			ret.result = evt.result;
@@ -56,11 +60,27 @@ var InvIndex = function(objStore, name, field, language) {
 					var result_ids = evt.srcElement.result.ids;
 					
 					finish_counter[curr_token] = result_ids.length;
-					
+
 					for (var j=0; j<result_ids.length; j++) {
 						var split = result_ids[j].split(':');
-	    				var request_text = objStore.get(split[0]);
+						var doc_id = split[0];
+						
+						var request_text = me.objectStore.get(split[0]);
+	    				var doc_positions = split.length == 2? split[1] : undefined;
 	    				
+						if (doc_id in result_dict) {
+							result_dict[doc_id].score = result_dict[doc_id].score? result_dict[doc_id].score + 1 : 1;
+							console.log(curr_token + " " + result_dict[doc_id].score);
+							result_dict[doc_id].positions = result_dict[doc_id].positions || {};
+							if (me.enablePositions) {
+	    						result_dict[doc_id].positions[curr_token] = doc_positions;
+	    					}
+	    					finish_counter[curr_token]--;
+							continue;
+						} else {
+							result_dict[doc_id] = {};
+						}
+
 		    			request_text.onerror = function(evt) {
 			    			console.log(evt, token);
 			    			ret.onerror();
@@ -69,15 +89,24 @@ var InvIndex = function(objStore, name, field, language) {
 		    			request_text.onsuccess = function(evt) {
 		    				finish_counter[curr_token]--;
 		    				var result = evt.srcElement.result;
+
 		    				if (result){
-		    					if (result.id in result_dict) {
-		    						result_dict[result.id].score += weight;
-		    					} else {
-			    					result_dict[result.id] = result;
-			    					result_dict[result.id].score = weight;
-			    				}
+		    					result.score = result_dict[result.id].score? result_dict[result.id].score + 1 : 1;
+		    					result.positions = result_dict[result.id].positions || {};
+		    					
+		    					if (me.enablePositions) {
+	    							result.positions[curr_token] = doc_positions;
+	    						}
+		    					result_dict[result.id] = result; 					
 		    				}
 		    				if (check_done()) {
+		    					var weighted_results;
+		    					if (me.enablePosition) {
+		    						Lucy.calculateCoverDensity(result_dict, me.normalization);
+		    					} else {
+		    						Lucy.calculateWeight(result_dict, me.normalization);
+		    					}
+		    					
 		    					ret.result = Lucy.convert_dict(result_dict);
 								ret.onsuccess();
 							}
@@ -96,7 +125,7 @@ var InvIndex = function(objStore, name, field, language) {
 
     // Tokenize and normalize data before insertion.
     this.insert = function(text) {
-    	var tokenCount = Lucy.tokenize(text);
+    	var tokenCount = Lucy.tokenize(text, {enablePosition: this.enablePosition});
 		var tokens = tokenCount.tokens;
 		
 		for (var token in tokens) {
@@ -104,14 +133,14 @@ var InvIndex = function(objStore, name, field, language) {
 		}
     };
 	
-	function indexToken(id, token, count, enablePosition) {	
+	function indexToken(id, token, count) {	
 		var getter = me.index.get(token);
 		
 		getter.onsuccess = function(evt) {
 			var cursor = getter.result;
 			var concatCounts = "";
 			
-			if (enablePosition) {
+			if (me.enablePosition) {
 				concatCounts += count[0];
 				for (var i=1; i<count.length; i++) {
 					concatCounts += "," + count[i];
@@ -121,7 +150,7 @@ var InvIndex = function(objStore, name, field, language) {
 			if (cursor) {
 				var update_obj = getter.result;
 	  			var ids = update_obj.ids;
-	  			if (enablePosition) {
+	  			if (me.enablePosition) {
 	  				ids.push(id + ":" + concatCounts);
 	  			} else {
 	  				ids.push(id);
@@ -131,7 +160,7 @@ var InvIndex = function(objStore, name, field, language) {
 					console.log(evt, update_obj);
 				};
 			} else {
-				if (enablePosition) {
+				if (me.enablePosition) {
 					var insert_obj = {"token": token, "ids": [id + ":" + concatCounts]};
 				} else {
 					var insert_obj = {"token": token, "ids": [id]};
@@ -170,11 +199,11 @@ var InvIndex = function(objStore, name, field, language) {
 				var value = cursor.value[me.indexField];
 				var id = cursor.value[keyval];
 				//tokenize string
-				var tokenCount = Lucy.tokenize(value, {enablePosition: true});
+				var tokenCount = Lucy.tokenize(value, {enablePosition: me.enablePosition});
 				
 				var tokens = tokenCount.tokens;
 				for (var token in tokens) {
-					indexToken(id, token, tokenCount.tokens[token], true);
+					indexToken(id, token, tokenCount.tokens[token]);
 				}
 
 				cursor.continue();

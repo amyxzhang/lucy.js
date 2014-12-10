@@ -158,6 +158,33 @@ Lucy.convert_dict = function(dict) {
 	});
 };
 
+Lucy.calculateCoverDensity = function(results, norm_level) {
+	for (var doc_id in results) {
+		Lucy.normalizeWeights(results[doc_id], norm_level);
+	}
+};
+Lucy.calculateWeight = function(results, norm_level) {
+	for (var doc_id in results) {
+		Lucy.normalizeWeights(results[doc_id], norm_level);
+	}
+};
+
+// normalization levels:
+// 0: do no normalization
+// 1: divide by document length
+// 2: divide by unique number of words in document
+Lucy.normalizeWeights = function(doc_obj, norm_level) {
+	var rank = doc_obj.score;
+	if (norm_level === 0) {
+		return;
+	} else if (norm_level === 1) {
+		doc_obj.score = rank*1.0/doc_obj.length;
+	} else if (norm_level === 2) {
+		doc_obj.score = rank*1.0/doc_obj.uniqueWords;
+	}
+};
+
+
 
 /*
  * Extends IDBRequest
