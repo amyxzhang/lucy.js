@@ -180,11 +180,10 @@ Also, the stopword list is included as a separate JavaScript file. To swap out o
 
 \subsection{Scoring and Ranking Results}
 
-There are many ways to score and rank results of a search query. Some techniques, such as \textit{tf-idf}, require precalculated document metadata. Others require knowning positional information about a word within a document. We define several built-in ranking functions derived from PostgreSQL's built-in \texttt{ts\_rank} and \texttt{ts\_rank\_cd} functions that take in a \texttt{normalization} option, with integer inputs providing different types of document normalizations\footnote{http://www.postgresql.org/docs/8.3/static/textsearch-controls.html}.
-The PostgreSQL's functions take into account how often the query terms appear in the document as well as how close together the terms are in the document. However, it is possible for a developer to implement their own ranking function and replace ours with theirs within Lucy.js.
+There are many ways to score and rank results of a search query. Some techniques, such as \textit{tf-idf}, require constant recalculation of document metadata. Others require knowning positional information about a word within a document. We define several built-in ranking functions derived from PostgreSQL's built-in \texttt{ts\_rank} and \texttt{ts\_rank\_cd} functions that take in a \texttt{normalization} option, with integer inputs providing different types of document normalizations\footnote{http://www.postgresql.org/docs/8.3/static/textsearch-controls.html}.
+The PostgreSQL's functions take into account how often the query terms appear in the document as well as how close together the terms are in the document. However, it is possible for a developer to implement their own ranking function and replace ours with theirs within Lucy.js if they so wish.
 
-The default rank that we implement is
-
+One function that we provide is \texttt{Lucy.calculateWeight()}, which counts the number of words in the search query that appear in the document. The other ranking we provide is \texttt{Lucy.calculateCoverDensity()}, which implements Cover Density Ranking~\cite{li2002improvement}, an algorithm that takes into account positional information. For this algorithm to work, we need to store at index creation time the positions that the word appears in the document. Both functions take in an optional \texttt{normalization} integer where the developer can specify whether they are interested in normalizing by document length or unique number of words in the document. If normalization is desired, then at index creation time, we calculate these measures and store them with the document object.
 
 \subsection{Implementation}
 
