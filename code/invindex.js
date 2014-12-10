@@ -58,7 +58,8 @@ var InvIndex = function(objStore, name, field, language) {
 					finish_counter[curr_token] = result_ids.length;
 					
 					for (var j=0; j<result_ids.length; j++) {
-	    				var request_text = objStore.get(result_ids[j]);
+						var split = result_ids[j].split(':');
+	    				var request_text = objStore.get(split[0]);
 	    				
 		    			request_text.onerror = function(evt) {
 			    			console.log(evt, token);
@@ -103,22 +104,39 @@ var InvIndex = function(objStore, name, field, language) {
 		}
     };
 	
-	function indexToken(id, token, count) {	
+	function indexToken(id, token, count, enablePosition) {	
 		var getter = me.index.get(token);
 		
 		getter.onsuccess = function(evt) {
 			var cursor = getter.result;
+			var concatCounts = "";
+			
+			if (enablePosition) {
+				concatCounts += count[0];
+				for (var i=1; i<count.length; i++) {
+					concatCounts += "," + count[i];
+				}
+			}
 			
 			if (cursor) {
 				var update_obj = getter.result;
 	  			var ids = update_obj.ids;
-	  			ids.push(id);
+	  			if (enablePosition) {
+	  				ids.push(id + ":" + concatCounts);
+	  			} else {
+	  				ids.push(id);
+	  			}
 				var insertion = me.index.put(update_obj);
 				insertion.onerror = function(evt) {
 					console.log(evt, update_obj);
 				};
 			} else {
-				var insert_obj = {"token": token, "ids": [id]};
+				if (enablePosition) {
+					var insert_obj = {"token": token, "ids": [id + ":" + concatCounts]};
+				} else {
+					var insert_obj = {"token": token, "ids": [id]};
+				}
+				
 				var insertion = me.index.add(insert_obj);
 
 				insertion.onerror = function(evt) {
@@ -134,6 +152,7 @@ var InvIndex = function(objStore, name, field, language) {
 	}
     
     this.build = function(db) {
+    	Lucy.normalize(this.objectStore, me.indexField, {types: [1,2]});  
     	
     	//create inverted index for field
     	this.index = db.createObjectStore(name, { keyPath: "token", ifExists: "replace" });
@@ -151,11 +170,11 @@ var InvIndex = function(objStore, name, field, language) {
 				var value = cursor.value[me.indexField];
 				var id = cursor.value[keyval];
 				//tokenize string
-				var tokenCount = Lucy.tokenize(value);
+				var tokenCount = Lucy.tokenize(value, {enablePosition: true});
 				
 				var tokens = tokenCount.tokens;
 				for (var token in tokens) {
-					indexToken(id, token, tokenCount[token]);
+					indexToken(id, token, tokenCount.tokens[token], true);
 				}
 
 				cursor.continue();

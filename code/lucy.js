@@ -51,9 +51,14 @@ Lucy.init = function(db) {
 
 Lucy.language = "english";
 
+// potential options:
+// disableStemming
+// enablePosition
+
 Lucy.tokenize = function(string, options) {
 	options = options || {};
 	options.disableStemming = !!options.disableStemming;
+	options.enablePosition = !!options.enablePosition;
 	
 	string = string.toLowerCase();
 	var tokens = string.match(/\w+/g);
@@ -70,8 +75,14 @@ Lucy.tokenize = function(string, options) {
 		
 		var count = Lucy.isStopWord(tokens[i])? stopwordCount : tokenCount;
 		
-		count.tokens[stem] = count.tokens[stem] || 0;
-		count.tokens[stem]++;
+		
+		if (!options.enablePosition) {
+			count.tokens[stem] = count.tokens[stem] || 0;
+			count.tokens[stem]++;
+		} else {
+			count.tokens[stem] = count.tokens[stem] || [];
+			count.tokens[stem].push(i);
+		}
 		
 		count.length++;
 	}
