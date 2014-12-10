@@ -69,7 +69,6 @@ Lucy.stopwords = [
 "beside",
 "besides",
 "best",
-"better",
 "between",
 "beyond",
 "both",

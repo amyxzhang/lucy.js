@@ -167,7 +167,7 @@ function search(db, query, objectStore) {
 			var result = request.result.reduce(function(prev, tweet) {
 				return prev + '<li><a href="http://twitter.com/' + tweet.username + '" class="user">' + tweet.username + '</a>: ' + tweet.text + 
 				       '<a href="http://twitter.com/' + tweet.username + '/' + 'status/' + tweet.id + '" class="date">' + tweet.date +
-				       "</a> Score: " + tweet.score + "</li>";
+				       "</a> Score: " + Math.round(tweet.score *100)/100 + "</li>";
 			}, '');
 		}
 		

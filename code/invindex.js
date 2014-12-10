@@ -70,9 +70,8 @@ var InvIndex = function(objStore, name, field, language) {
 	    				
 						if (doc_id in result_dict) {
 							result_dict[doc_id].score = result_dict[doc_id].score? result_dict[doc_id].score + 1 : 1;
-							console.log(curr_token + " " + result_dict[doc_id].score);
 							result_dict[doc_id].positions = result_dict[doc_id].positions || {};
-							if (me.enablePositions) {
+							if (me.enablePosition) {
 	    						result_dict[doc_id].positions[curr_token] = doc_positions;
 	    					}
 	    					finish_counter[curr_token]--;
@@ -94,13 +93,12 @@ var InvIndex = function(objStore, name, field, language) {
 		    					result.score = result_dict[result.id].score? result_dict[result.id].score + 1 : 1;
 		    					result.positions = result_dict[result.id].positions || {};
 		    					
-		    					if (me.enablePositions) {
+		    					if (me.enablePosition) {
 	    							result.positions[curr_token] = doc_positions;
 	    						}
 		    					result_dict[result.id] = result; 					
 		    				}
 		    				if (check_done()) {
-		    					var weighted_results;
 		    					if (me.enablePosition) {
 		    						Lucy.calculateCoverDensity(result_dict, me.normalization);
 		    					} else {

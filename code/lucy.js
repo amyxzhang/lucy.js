@@ -158,11 +158,30 @@ Lucy.convert_dict = function(dict) {
 	});
 };
 
+// weighting taking into account position
 Lucy.calculateCoverDensity = function(results, norm_level) {
 	for (var doc_id in results) {
 		Lucy.normalizeWeights(results[doc_id], norm_level);
+		var positions = results[doc_id].positions;
+		
+		var total_iscore = 0.0;
+		for (var token1 in positions) {
+			for (var token2 in positions) {
+				if (token1 === token2) continue;
+				var last_pos1 = positions[token1][positions[token1].length-1];
+				var first_pos2 = positions[token2][0];
+				if (last_pos1 < first_pos2) {
+					var iscore = 16.0/(first_pos2 - last_pos1 +1);
+					if ((first_pos2 - last_pos1 +1) > 16.0) iscore = 1.0;
+					total_iscore += iscore;
+				} else continue;
+			}
+		}
+		results[doc_id].score += total_iscore;
 	}
 };
+
+// normal weighting without taking into account position
 Lucy.calculateWeight = function(results, norm_level) {
 	for (var doc_id in results) {
 		Lucy.normalizeWeights(results[doc_id], norm_level);
@@ -236,7 +255,7 @@ IDBDatabase.prototype.createObjectStore = function(name, optionalParameters) {
 	}
 	
 	return _createObjectStore.apply(this, arguments);
-}
+};
 
 /*
 Intercept put  
