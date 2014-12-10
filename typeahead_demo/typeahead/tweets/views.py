@@ -45,7 +45,7 @@ def query_fulltext(request, query):
 
 def get_tweets(request):
     try:
-        file = open(os.path.join(PROJECT_ROOT, 'xad'))
+        file = open(os.path.join(PROJECT_ROOT, 'tweets2.json'))
     except Exception, e:
         print e    
 
@@ -63,7 +63,7 @@ def delete_tweets(request):
 
 def insert_tweets1(request):
     try:
-        file = open(os.path.join(PROJECT_ROOT, 'xad'))
+        file = open(os.path.join(PROJECT_ROOT, 'tweets2.json'))
         tweets = json.loads(file.read())
         tweets = tweets["tweets"]
         for tweet in tweets:
