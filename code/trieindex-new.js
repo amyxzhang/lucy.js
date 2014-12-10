@@ -277,11 +277,13 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
 								}
 							}
 							else {
-								throw new Error("Can't find " + node.prefix + " in the children of " + parentPrefix);
+								//throw new Error("Can't find " + node.prefix + " in the children of " + parentPrefix);
+								cursor.continue();
 							}
 						}
 						else {
-							throw new Error("Can't find parent of " + node.prefix + ". I tried " + parentPrefix + " but no avail");
+							//throw new Error("Can't find parent of " + node.prefix + ". I tried " + parentPrefix + " but no avail");
+							cursor.continue();
 						}
 					}
 					
