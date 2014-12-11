@@ -197,7 +197,7 @@ Both functions take in an optional \texttt{normalization} integer where the deve
 
 \subsection{Implementation}
 
-We created Lucy.js in JavaScript, as the IndexedDB API is also a JavaScript API. The code consists of four main files - \texttt{lucy.js}, \texttt{invindex.js}, \texttt{trieindex.js},  and \texttt{trieindex-hybrid.js} *********UPDATE? plus some third-party files that the user must include in their HTML file. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
+We created Lucy.js in JavaScript, as the IndexedDB API is also a JavaScript API. The code consists of four main files - \texttt{lucy.js}, \texttt{invindex.js}, \texttt{trieindex.js},  and \texttt{trieindex-hybrid.js}. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
 
 The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which holds various text processing functions that the different indexes use. There is also an extension of \texttt{IDBRequest} called \texttt{IDBIndexRequest} that provides the same behavior, only for our full-text indexes. Finally, there are a set of functions that intercept functions of \texttt{IDBObjectStore}. When a user calls \texttt{create\_index} or \texttt{index}, if they are creating or referring to a full-text index we direct the function to one of our index implementations. When a user calls \texttt{add},  \texttt{delete}, or \texttt{put} on an object store that has a full-text index, we additionally add the item to our indexes. In the following section, we explain in more detail our index implementations.
 The core code as well as examples can be found on Github\footnote{https://github.com/amyxzhang/lucy.js}.
@@ -205,7 +205,7 @@ The core code as well as examples can be found on Github\footnote{https://github
 
 \section{Index Implementations}
 
-We looked to many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.:
+We looked into many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.:
 
 \begin{figure}
   \centering
@@ -231,6 +231,7 @@ Prefix and suffix tries are implemented using the same design. The only differen
 A trie index in Lucy.js (prefix or suffix trie) is represented by two underlying entities in IndexedDB: an object store to save nodes in the trie, and an index on that object store to make trie traversal faster.  A reference to the input object store to be indexed, which contains the full-text to be searched, is also saved.
 
 \subsubsection{Trie Node Object Store}
+
 Each entry in the object store represents a different node in the trie. The structure of entries in the object store is as follows:
 \begin{center}
 \texttt{node\_id:\{parent\_id:a, char:b, docIds:[x,y,z]\}}
@@ -296,7 +297,8 @@ for each node:
    if node.children = 1:
       for each parent's children:
          if children[i] points to node:
-     	    children[i] += child.prefix;
+     	    children[i] += child.prefix
+     	    exit loop
      child.parent++ (# of chars to reach parent)
      delete node
 \end{verbatim}
@@ -325,7 +327,9 @@ After several tests with different sample sizes, we settled for about 5\% of the
 
 \subsubsection{Index Creation}
 
-For our 44771 tweets dataset, it took (average of 3 index creations) 3 minutes and 21 seconds to build the inverted index, 47 minutes and 24 seconds to build the prefix trie, 48 minutes 12 seconds to build the suffix trie, 2 minutes 53 seconds to build a hybrid prefix trie and 3 minutes 2 seconds to build a hybrid suffix tree. 
+For our 44771 tweets dataset, it took (average of 3 index creations) 3 minutes and 21 seconds to build the inverted index, 47 minutes and 24 seconds to build the prefix trie, 48 minutes 11 seconds to build the suffix trie, 2 minutes 53 seconds to build a hybrid prefix trie and 3 minutes 2 seconds to build a hybrid suffix tree.
+
+For a dataset of 5000 tweets, it takes 20 seconds to build the inverted index and the hybrid indices, but 3 minutes to build the prefix/suffix tries, which indicates that the prefix/suffix tries would be more suited to smaller datasets.
 
 \subsubsection{Index Lookups}
 
