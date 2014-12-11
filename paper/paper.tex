@@ -302,28 +302,33 @@ The data also shows that the number of results has an  impact on lookup time. Th
 
 As seen previously, our implemented indexes perform much faster than a naive sequential scan over all full-text values. Given the current state of the IndexedDB API, this constitutes a great improvement in new functionality for fully client-side applications. However, most web applications are not client-side only and have a server component that can then query a server-side search engine such as Lucene, MySQL, or PostgreSQL. Thus in our evaluation, we seek to determine whether the client-side approach is faster than the server-side approach. While Lucene may generally be faster than Lucy.js for query evaluation, which is likely given that it has special purpose data structures and many years of development, a fully client-side approach may still beat a server-side approach due to network latency. 
 
-We conduct our evaluation on two different real-life applications: a full-text search bar and a typeahead search bar that makes queries for every character as they are typed. The dataset that we test on is the same Twitter dataset used previously. For each set of tests, we test it on a random subset of tweets. For the search queries, because we do not have access to typical search queries, we simply take a random sample of 20 non-stopword words from the full tweet dataset. 
+The server we built is implemented in Python and uses Django, Apache, and mod\_wsgi. It is hooked up to a MySQL database which has a full-text index on the tweet text. Both are hosted on the OpenStack cloud in a virtual machine, with the database residing in the virtual machine's local storage. The full-text search bar on the client side uses our inverted index to search for the query, while the typeahead search bar uses our prefix trie as it is more suited to finding prefixes.
 
-The server is implemented in Python and uses Django, Apache, and mod\_wsgi. It is hooked up to a MySQL database which has a full-text index on the tweet text. Both are hosted on the OpenStack cloud in a virtual machine, with the database residing in the virtual machine's local storage. Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user can first delete all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client database requires the user to continue clicking the button to run more queries and see an updating average time.
+We conduct our evaluation on two different real-life applications: a full-text search bar and a typeahead search bar that makes queries for every character as they are typed. The dataset that we test on is the same Twitter dataset used previously. We test each application on two different size datasets of 100 and 2000 tweets picked randomly. For the search queries, because we do not have access to typical search queries in real life, we simply take a random sample of 20 non-stopword words from the full tweet dataset for each set of experiments. We conduct 8 trials for each condition and delete and reinsert and recreate indexes before each trial. For the full-text search bar, we simply search for the 20 words and record the time taken. For the typeahead bar, we search for each of the 20 words as well as all prefixes of each word, in order as if one were typing into the search bar, and record the time. 
 
+\begin{figure}[h!]
+   \includegraphics[scale=.43]{figure_1}
+  \caption{Comparison of client-side versus server-side indexes for full-text search. Tested on a full-text search bar (FT Search) and a typeahead search bar (Typeahead) and with Twitter dataset sizes of 100 and 2000 tweets.}
+\label{compare}
+\end{figure}
+
+\subsection{Results}
+
+In Figure~\ref{compare}, we report the average time taken for each of the approaches (client versus server) on the two applications and dataset sizes. As can be seen, overall the client-side only approach is faster than than the server-side approach. When looking at full-text search, even when the dataset size grows over a magnitude larger, the server-side average time varies little. This suggests that the time taken is mostly taken up by network latency. We do see a small increase in the time taken for the client-side database. This suggests that as datasets grow larger, it may be a better decision to store the majority of the data on the server side and do queries on smaller subsets in the client. 
+
+When looking at the typeahead search bar, we see that when the dataset gets larger, the average time taken for both client and server increases, though the client-side increase is greater. When looking more closely at the times for different queries made, we notice that there is a great deal of variation in the time because a very short prefix will return a much larger result set than a longer prefix. The client side had greater variation overall, with a standard deviation of 56.477ms, maximum time of 256ms, and minimum time of 1ms. The server side had a standard deviation of 49.116ms, maximum time of 220ms, and minimum time of 14ms. Given these findings, a best approach may be employ a mixed approach and send shorter prefixes to the server and longer prefixes to the client. Generally, queries that will return a small result set would be faster if they are served from the client, as the network latency always tacks on extra time for the query to the server. Queries that will return a very large result set may have better performance if they are sent to the server.
+
+
+
+\subsection{Live Demos}
 
 \begin{figure}[h!]
 \centering
    \includegraphics[scale=.34]{typeahead}
-  \caption{caption here.}
+  \caption{Screenshot of typeahead search bar demo.}
 \label{demo}
 \end{figure}
-
-
-\subsection{Results}
-
-
-
-\begin{figure}[h!]
-   \includegraphics[scale=.53]{demo_results}
-  \caption{caption here.}
-\end{figure}
-
+Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user first deletes all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client-side database requires the user to continue clicking the button to run more queries and see an updating average time.
 
 
 \section{Discussion}
