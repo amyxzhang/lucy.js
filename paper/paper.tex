@@ -315,6 +315,11 @@ For the DFS case, we maintain a counter of pending paths that we pass by referen
 
 \section{Performance and Comparison}
 
+\begin{figure}
+   \includegraphics[scale=.2]{search-screenshot}
+  \caption{Our local full-text search demo that we used to take the measurements described in this experiment.}
+\end{figure}
+
 \subsection{Data set}
 
 For the performance comparisons in this section we used a CSV dataset of a one million tweet sample originally intended for sentiment analysis\footnote{http://help.sentiment140.com/for-students}.
@@ -338,7 +343,7 @@ We tried four different queries with different result set sizes (from 25 to 2398
 While all of our indexes have comparable performance, they outperform sequential search by orders of magnitude. Sequential search for all four of our queries seems to be taking close to 3 seconds, whereas our index-optimized queries take only about 10-100ms. 
 
 \begin{figure}
-   \includegraphics[scale=.53]{query-times}
+   \includegraphics[scale=.39]{query-times}
   \caption{Comparison of query times for various queries with different result set sizes (left to right: smaller to larger) between our three main types of indexes and sequential search (the only way to search strings that indexedDB offers). }
   \label{querytimes}
 \end{figure}
@@ -352,26 +357,52 @@ As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on l
 \label{comptrie}
 \end{figure}
 
-The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that ``feel'', with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
+The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that "feel", with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
+
+\subsection{Comparison}
+
+As we have seen earlier in this section, prefix and suffix tries are very intensive to create in a key-value store, and thus, are better suited to smaller datasets. This is what initially motivated us to build the hybrid approach, which, as we have demonstrated, is orders of magnitude faster in index creation time and slightly faster in query time. However, the hybrid approach is less space efficient than tries (in the general case), since the entire path to the node needs to be stored as its key, which makes it better suited for shorter tokens. The inverted index is slightly (within the margin of error) slower for lookups than both tries, but this is likely due to the overhead of stemming.
+
+\section{Evaluation}
+
+As seen previously, our implemented indexes perform much faster than a naive sequential scan over all full-text values. Given the current state of the IndexedDB API, this constitutes a great improvement in new functionality for fully client-side applications. However, most web applications are not client-side only and have a server component that can then query a server-side search engine such as Lucene, MySQL, or PostgreSQL. Thus in our evaluation, we seek to determine whether the client-side approach is faster than the server-side approach. While Lucene may generally be faster than Lucy.js for query evaluation, which is likely given that it has special purpose data structures and many years of development, a fully client-side approach may still beat a server-side approach due to network latency. 
+
+The server we built is implemented in Python and uses Django, Apache, and mod\_wsgi. It is hooked up to a MySQL database which has a full-text index on the tweet text. Both are hosted on the OpenStack cloud in a virtual machine, with the database residing in the virtual machine's local storage. The full-text search bar on the client side uses our inverted index to search for the query, while the typeahead search bar uses our prefix trie as it is more suited to finding prefixes.
+
+We conduct our evaluation on two different real-life applications: a full-text search bar and a typeahead search bar that makes queries for every character as they are typed. The dataset that we test on is the same Twitter dataset used previously. We test each application on two different size datasets of 100 and 2000 tweets picked randomly. For the search queries, because we do not have access to typical search queries in real life, we simply take a random sample of 20 non-stopword words from the full tweet dataset for each set of experiments. We conduct 8 trials for each condition and delete and reinsert and recreate indexes before each trial. For the full-text search bar, we simply search for the 20 words and record the time taken. For the typeahead bar, we search for each of the 20 words as well as all prefixes of each word, in order as if one were typing into the search bar, and record the time. 
+
+\begin{figure}[h!]
+   \includegraphics[scale=.43]{figure_1}
+  \caption{Comparison of client-side versus server-side indexes for full-text search. Tested on a full-text search bar (FT Search) and a typeahead search bar (Typeahead) and with Twitter dataset sizes of 100 and 2000 tweets.}
+\label{compare}
+\end{figure}
+
+\subsection{Results}
+
+In Figure~\ref{compare}, we report the average time taken for each of the approaches (client versus server) on the two applications and dataset sizes. As can be seen, overall the client-side only approach is faster than than the server-side approach. When looking at full-text search, even when the dataset size grows over a magnitude larger, the server-side average time varies little. This suggests that the time taken is mostly taken up by network latency. We do see a small increase in the time taken for the client-side database. This suggests that as datasets grow larger, it may be a better decision to store the majority of the data on the server side and do queries on smaller subsets in the client. 
+
+When looking at the typeahead search bar, we see that when the dataset gets larger, the average time taken for both client and server increases, though the client-side increase is greater. When looking more closely within trials at the times for all the queries made, we notice that there is a great deal of variation because a very short prefix will return a much larger result set than a longer prefix. The client side had greater variation overall, with a standard deviation of 56.477ms, maximum time of 256ms, and minimum time of 1ms. The server side had a standard deviation of 49.116ms, maximum time of 220ms, and minimum time of 14ms. Given these findings, a best approach may be employ a mixed approach and send shorter prefixes to the server and longer prefixes to the client. Generally, queries that will return a small result set would be faster if they are served from the client, as the network latency always tacks on extra time for the query to the server. Queries that will return a very large result set may have better performance if they are sent to the server.
 
 
 
+\subsection{Live Demos}
 
-\section{Evaluation and Applications}
-
-\subsection{Client-side vs. Server-side Search}
-
-
+Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user first deletes all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client-side database requires the user to continue clicking the button to run more queries and see an updating average time.
 
 
 \begin{figure}[h!]
-   \includegraphics[scale=.53]{demo_results}
-  \caption{caption here.}
+\centering
+   \includegraphics[scale=.34]{typeahead}
+  \caption{Screenshot of typeahead search bar demo.}
+\label{demo}
 \end{figure}
 
 
-
 \section{Discussion}
+
+From our findings, we determine that client-side search engines are indeed feasible to build and have reasonable performance on 
+ could be very useful for the right application and 
+
 
 
 Newer peer-to-peer standards such as WebRTC for browsers may make more client-heavy social and interactive applications feasible in the future.
@@ -379,9 +410,11 @@ Newer peer-to-peer standards such as WebRTC for browsers may make more client-he
 \section{Future Work}
 The functionality of Lucy.js can be expanded to perform more complex queries and to improve the quality of returned results. While prefix and suffix searches are currently handled, arbitrary substring or regex searches are not supported. With these new features, users could write more customized queries and get better results. Additional forms of natural language processing could also improve the quality of results returned on searches. For example, synonym replacement could be implemented similarly to Postgres , allowing Lucy.js to find text results with similar themes or meaning. To improve performance, the existing indexes -- particularly the trie index -- could be optimized during index creation.
 
-Another avenue for future research would be collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
+Another avenue for future research would be to build and evaluate applications that do collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
 
 \section{Conclusion}
+
+Client-side search engines offer new functionality to client-side applications and potential speed improvements for applications that query a server-side search engine. We implemented a client-side search engine as an extension of the IndexedDB API, building several different types of index structures including inverted indexes, prefix and suffix tries, and a hybrid approach combining the two. We compare the performance of our indexes against each other and find that our hybrid approach is overall the fastest. We additionally evaluate our system by implementing a full-text search bar and a typeahead search bar and compare performance of a client-side only approach with a server-side only approach using MySQL. We find that for small to moderate datasets, the network latency incurred by trips to the server make client-size querying faster. Finally, we imagine potential applications that could be enhanced using our client-side search engine.
 
 \bibliographystyle{abbrv}
 \bibliography{paper}
