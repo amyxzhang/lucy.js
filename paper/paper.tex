@@ -217,6 +217,12 @@ node\_id: \{ parent\_id: a, char: b, doc\_ids: [x,y,z] \}
 \end{center}
 The key to the object store is the node\_id, and the corresponding value object has three attributes: parent\_id, char, and doc\_ids. The parent\_id attribute is the node id of the parent node in the trie, and the char attribute is the character value for the trie node. The final attribute is doc\_ids, which is a list of keys into the input text object store. The keys in this list are like foreign keys that allow the trie index to retrieve the actual text from the input object store when answering queries. Each path -- and therefore each node -- in the trie represents a unique prefix/suffix. The doc\_ids for a node contains the ids of all documents with that given prefix/suffix. Inserting a word from a given document therefore involves appending that document's id into the doc\_ids of each node along the path corresponding to the word. The structure of the trie is shown in Figure ******.  It is important to note that this approach is not very scalable; since each node stores a list of matching document ids, interior nodes closer to the root of the trie could store large lists of these ids. However, the benefit is that searches in the trie do not require traversal all the way down to the leaves. Matches can be returned as soon as the prefix is traced in the trie, and no further traversal along subtrees is needed. An alternative design to the trie index is the Hybrid Trie discussed in the next section.
 
+\begin{figure}[h!]
+  \centering
+   \includegraphics[scale=.35]{trie_figure}
+  \caption{Structure of a trie index with two input tweets. The tweets are first tokenized and stop words are removed. Note that document ids are stored in every node. An artificial root node is created as the root of the trie.}
+\end{figure}
+
 \subsubsection{Trie Node Index}
 While the structure of the trie node object store optimizes lookups by node id, this is not particularly useful for trie traversal. When traversing down a trie, we would instead like to look up nodes by both their character value and their parent id. It would have been possible to change the design of the trie object store so that each node stored a list of children node ids instead of a single parent id. However, this approach requires each node to store more information, since a list of children ids is saved per node instead of a single parent id. Additionally, we would then need to iterate over this list of children ids in order to find a particular child node with a given character value. With the current object store structure, we can optimize lookups by parent\_id and char by building an index on both these attributes. Overall, the trie index is backed by an object store for node storage and an index on that object store with a compound key of both parent\_id and char.
 
@@ -231,6 +237,12 @@ Due to the manner in which letters in a word need to be inserted sequentially in
 
 \subsubsection{Depth-Limiting}
 To limit the size of trie indexes, an optional maximum depth can be set. If set, words longer than the depth are cut off so that the remainder substrings are stored at the leaves. Figure ****** shows the structure of the same trie as before, but with a maximum depth of 4. Leaf nodes store this substring data as a mapping from substring to document ids containing that substring. During lookups, if the maximum depth of the trie is reached, this map is searched for matches. So while depth-limiting trie indexes can limit the number of trie nodes that need to be traversed upon lookups, they incur the cost of searching these maps at the leaves. If the max depth parameter is too small, these maps can be large and slow down search significantly. If set too large, the max depth parameter has no effect.
+
+\begin{figure}[h!]
+  \centering
+   \includegraphics[scale=.35]{trie_maxdepth_figure}
+  \caption{Structure of a trie index with a maximum depth of 4. If a word gets cut off by the depth limit, the substring remainder is stored at the leaves. Each substring remainder maps to a list of document ids with that remainder.}
+\end{figure}
 
 \subsection{Hybrid Tries}
 
