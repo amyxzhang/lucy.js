@@ -298,13 +298,24 @@ As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on l
 
 The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that ``feel'', with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
 
+\section{Evaluation}
+
+As seen previously, our implemented indexes perform much faster than a naive sequential scan over all full-text values. Given the current state of the IndexedDB API, this constitutes a great improvement in new functionality for fully client-side applications. However, most web applications are not client-side only and have a server component that can then query a server-side search engine such as Lucene, MySQL, or PostgreSQL. Thus in our evaluation, we seek to determine whether the client-side approach is faster than the server-side approach. While Lucene may generally be faster than Lucy.js for query evaluation, which is likely given that it has special purpose data structures and many years of development, a fully client-side approach may still beat a server-side approach due to network latency. 
+
+We conduct our evaluation on two different real-life applications: a full-text search bar and a typeahead search bar that makes queries for every character as they are typed. The dataset that we test on is the same Twitter dataset used previously. For each set of tests, we test it on a random subset of tweets. For the search queries, because we do not have access to typical search queries, we simply take a random sample of 20 non-stopword words from the full tweet dataset. 
+
+The server is implemented in Python and uses Django, Apache, and mod\_wsgi. It is hooked up to a MySQL database which has a full-text index on the tweet text. Both are hosted on the OpenStack cloud in a virtual machine, with the database residing in the virtual machine's local storage. Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user can first delete all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client database requires the user to continue clicking the button to run more queries and see an updating average time.
 
 
+\begin{figure}[h!]
+\centering
+   \includegraphics[scale=.34]{typeahead}
+  \caption{caption here.}
+\label{demo}
+\end{figure}
 
-\section{Evaluation and Applications}
 
-\subsection{Client-side vs. Server-side Search}
-
+\subsection{Results}
 
 
 
