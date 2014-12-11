@@ -253,6 +253,11 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \subsubsection{Depth-Limiting for Tries}
 As seen in Figure *****, the maximum depth parameter has an effect on lookup times in trie indexes. The graph shows the results for a trie index prefix search, but the similar results would be expected on suffix searches. A small set of input tweet data was used (367 KB data, about 2100 tweets), and the same three words were looked up in indexes created with differing max depths. The lookup time tends to decrease as the maximum depth increases; this is because depth cutoffs can result in slow searches through word mappings stored on leaf nodes (see section **** for details). The difference in times is more pronounced for the term ``feel'', with a drop from 26.78ms to 18.05ms. For the term ``james'', lookup times are much closer together and not as affected by depth limits. This is due to the fact that ``feel'' yielded many more results (85 results) than ``james'' (4 results), suggesting that more potential matches had to be searched at the leaf nodes for ``feel'' than for ``james''. Results for ``wait'' are between the others, and also show a moderate drop in lookup time as the maximum depth increases. This is most likely because ``wait'' produced a moderate 36 results, and therefore a moderate number of terms were searched at the leaves.
 
+\begin{figure}[h!]
+   \includegraphics[scale=.43]{trie_maxdepth_graph}
+  \caption{Maxiumum depth vs lookup times for a prefix trie index. A depth of ``None'' indicates that there is no limit. The results for three different search terms are shown. The dataset size was roughly 2100 tweets.}
+\end{figure}
+
 The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that ``feel'', with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
 
 \subsubsection{Client-side vs. Server-side Search}
@@ -268,7 +273,7 @@ The data also shows that the number of results has an  impact on lookup time. Th
 
 \section{Conclusion}
 
-\bibliographystyle{abbrv}
-\bibliography{paper}
+%\bibliographystyle{abbrv}
+%\bibliography{paper}
 
 \end{document}
