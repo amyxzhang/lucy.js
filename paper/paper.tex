@@ -286,7 +286,7 @@ Every node can also potentially include a list of document ids, for documents th
 
 We can see that if we discard children and child-less nodes, our index basically becomes a simple inverted index with no stemming. However, traversing the subtree for prefix searches also makes it function like a prefix trie, hence the name Hybrid (prefix/suffix) trie.
 
-\subsubsection{Leaf and path Shrink}
+\subsubsection{Leaf and Path Shrink}
 
 To eliminate wasteful lookups, we implement leaf and path shrinkage. In tries, there are often long sequences of nodes with only one child. If those nodes have no document ids, we can combine them to a single node without any loss of functionality.
 
@@ -357,7 +357,7 @@ As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on l
 \label{comptrie}
 \end{figure}
 
-The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that "feel", with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
+The data also shows that the number of results has an  impact on lookup time. The three graphs are tiered such that ``feel", with the most results, is also the slowest query. While the lookup logic is parallelized so that the text for multiple matching document ids can be retrieved concurrently, the number of lookups that are done to retrieve this text has an impact on performance.
 
 \subsection{Comparison}
 
