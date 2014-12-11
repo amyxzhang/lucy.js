@@ -103,7 +103,8 @@ The two main goals of Lucy.js we aimed to achieve during implementation were: (i
 
 \subsection{IndexedDB}
 
-Indexed Database (IndexedDB) is a collection of Javascript APIs and is an official W3C specification (Proposed Recommendation stage) ~\cite{w3c}. It is supported by almost every modern browser, both on desktop and mobile devices. Chrome, Firefox, Internet Explorer, Opera, and Safari are only some of the browsers that have added support for IndexedDB in their modern versions. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
+Indexed Database (IndexedDB) is a collection of Javascript APIs for a multi-threaded, asynchronous client-side key-value store. It is an official W3C specification ~\cite{w3c}, at the Proposed Recommendation stage as of November 20th, 2014. It is supported by almost every modern browser, both on desktop and mobile devices. Chrome, Firefox, Internet Explorer, Opera, and Safari are only some of the browsers that have added support for IndexedDB in their modern versions. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
+
 On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, secondary indexes, \texttt{put} and \texttt{get} commands using the key, and forward and backward iteration over keys (range queries). 
 
 The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specify what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write will lock the specified object stores for the entire duration of the transaction.
@@ -113,8 +114,9 @@ All transactions in IndexedDB are asynchronous, meaning that one must request fo
 \subsection{Extending IndexedDB with Lucy.js}
 
 \subsubsection{Creating a Full-Text Index}
+
 The interface to a database is maintained through an \texttt{IDBDatabase} object.
-To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, key\_path\right)$} function for creating full-text indexes. We add an additional optional parameter of \texttt{type} which allows the developer to specify a type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. *********UPDATE If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on a field \texttt{text} in an object store of Twitter tweets.
+To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, key\_path\right)$} function for creating full-text indexes. We add an additional optional parameter of \texttt{type} which allows the developer to specify a type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. If the developer does not specify a type, then the function call is deferred to the native IndexedDB API and a regular index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on a field \texttt{text} in an object store of Twitter tweets.
 
 \begin{verbatim}
 var newDBVersion = incrementDBVersion();
@@ -195,7 +197,7 @@ Both functions take in an optional \texttt{normalization} integer where the deve
 
 \subsection{Implementation}
 
-We created Lucy.js in JavaScript, as the IndexedDB API is also in JavaScript. The code consists of three main files - \texttt{lucy.js}, \texttt{invindex.js}, \texttt{trieindex.js},  and \texttt{trieindex-new.js} *********UPDATE? plus some third-party files that the user must include in their HTML file. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
+We created Lucy.js in JavaScript, as the IndexedDB API is also a JavaScript API. The code consists of four main files - \texttt{lucy.js}, \texttt{invindex.js}, \texttt{trieindex.js},  and \texttt{trieindex-hybrid.js} *********UPDATE? plus some third-party files that the user must include in their HTML file. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
 
 The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which holds various text processing functions that the different indexes use. There is also an extension of \texttt{IDBRequest} called \texttt{IDBIndexRequest} that provides the same behavior, only for our full-text indexes. Finally, there are a set of functions that intercept functions of \texttt{IDBObjectStore}. When a user calls \texttt{create\_index} or \texttt{index}, if they are creating or referring to a full-text index we direct the function to one of our index implementations. When a user calls \texttt{add},  \texttt{delete}, or \texttt{put} on an object store that has a full-text index, we additionally add the item to our indexes. In the following section, we explain in more detail our index implementations.
 The core code as well as examples can be found on Github\footnote{https://github.com/amyxzhang/lucy.js}.
@@ -270,28 +272,78 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \begin{figure}[h!]
   \centering
    \includegraphics[scale=.4]{hybrid-trie}
-  \caption{Structure of a hybrid trie.}
+  \caption{Structure of a hybrid trie with leaf and path shrink.}
 \end{figure}
 
+We also implemented a novel approach, which we call a hybrid trie: A hybrid between an inverted index and a prefix (or suffix) trie. This approach takes advantage of the fact that every object store in IndexedDB is essentially a hash index with very fast key lookups. 
+
+Every node in our hybrid trie has its entire path as its key. Therefore, when faced with a prefix query, we can directly jump to the position in the trie that corresponds to that prefix instead of doing \(O(n)\) lookups on the size of the prefix.
+
+Then, every node includes an array of characters that are the children of the node in the trie. The key of each child is determined by concatenating the key of the parent node with each of the strings in the children array.
+
+Every node can also potentially include a list of document ids, for documents that contain its prefix as a token (i.e. not a prefix of some longer token). Nodes without children must contain a list of document ids, but internal nodes can also contain document ids. For example, the node for “cat” would contain document ids of documents with the word "cat" itself, as well as children, for terms like "catsitting", "caturday" or "catnip". For these examples, the list of children could be \texttt{['n', 's', 'u']}.
+
+We can see that if we discard children and child-less nodes, our index basically becomes a simple inverted index with no stemming. However, traversing the subtree for prefix searches also makes it function like a prefix trie, hence the name Hybrid (prefix/suffix) trie.
+
+\subsubsection{Leaf and path Shrink}
+
+To eliminate wasteful lookups, we implement leaf and path shrinkage. In tries, there are often long sequences of nodes with only one child. If those nodes have no document ids, we can combine them to a single node without any loss of functionality.
+
+Shrinkage is a post-processing step after index generation, since we cannot know which nodes can be combined until all documents have been added to the index. Then our shrinkage algorithm works as follows:
+
+\begin{verbatim}
+for each node: 
+   if node.children = 1:
+      for each parent's children:
+         if children[i] points to node:
+     	    children[i] += child.prefix;
+     child.parent++ (# of chars to reach parent)
+     delete node
+\end{verbatim}
+
+This results in a small speed increase, but since lookups by key in indexedDB are already quite fast, the increase is not significant. However, it also results in space savings, which is important because space on the client-side is very limited: after only a few Megabytes, browsers will ask for confirmation by the user, which is disruptive and can lead to non-technical users declining merely out of confusion.
+
+\subsubsection{Asynchronous depth-first search}
+
+Since IndexedDB is multi-threaded, every step of a single transaction is asynchronous. This brings several challenges to writing transactions that are not present in most other DBMS', where concurrency conundrums only arise in the context of multiple concurrent transactions.
+
+Even something as simple as a depth-first search on our trie subtree becomes nontrivial when asynchronicity is added in the mix. Individual statements (reads or writes) are atomic, but reads and writes can be interleaved in any possible way (unless special care is taken to enforce a specific interleaving, at the cost of parallelism).
+
+For the DFS case, we maintain a counter of pending paths that we pass by reference to the recursive method responsible for traversing the tree, decrement it by 1 when we reach a leaf and increment it by max(0, n) when we encounter a node with n+1 children. When the counter becomes zero at a leaf, we conclude the search.
+
 \section{Performance and Comparison}
+
+\subsection{Data set}
+
+For the performance comparisons in this section we used a CSV dataset of a one million tweet sample originally intended for sentiment analysis\footnote{http://help.sentiment140.com/for-students}.
+
+We first stripped off unneeded information such as sentiment flags to reduce the size of the dataset, as we are only interested in textual content. We then wrote an ad-hoc Python script to select a random subset and convert it to JSON, which is what the generic IndexedDB importer we wrote expected.
+
+After several tests with different sample sizes, we settled for about 5\% of the original dataset (44771 tweets), as our target browser (Google Chrome) was having difficulty with larger datasets.
 
 \subsection{Comparing Different Index Types}
 
 \subsubsection{Index Creation}
 
+For our 44771 tweets dataset, it took (average of 3 index creations) 3 minutes and 21 seconds to build the inverted index, 47 minutes and 24 seconds to build the prefix trie, 48 minutes 12 seconds to build the suffix trie, 2 minutes 53 seconds to build a hybrid prefix trie and 3 minutes 2 seconds to build a hybrid suffix tree. 
+
 \subsubsection{Index Lookups}
 
+We tried four different queries with different result set sizes (from 25 to 2398) on index type, as well as plain sequential search, which is the only type of string search that IndexedDB provides out of the box. The results can be seen in Figure~\ref{querytimes}.
 
-\begin{figure}[h!]
+While all of our indexes have comparable performance, they outperform sequential search by orders of magnitude. Sequential search for all four of our queries seems to be taking close to 3 seconds, whereas our index-optimized queries take only about 10-100ms. 
+
+\begin{figure}
    \includegraphics[scale=.53]{query-times}
-  \caption{caption here}
+  \caption{Comparison of query times for various queries with different result set sizes (left to right: smaller to larger) between our three main types of indexes and sequential search (the only way to search strings that indexedDB offers). }
+  \label{querytimes}
 \end{figure}
 
 \subsection{Depth-Limiting for Tries}
-As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on lookup times in trie indexes. The graph shows the results for a trie index prefix search, but the similar results would be expected on suffix searches. A small set of input tweet data was used (367 KB data, about 2100 tweets), and the same three words were looked up in indexes created with differing maximum depths. The lookup time tends to decrease as the maximum depth increases; this is because depth cutoffs can result in slow searches through word mappings stored on leaf nodes (see Section~\ref{depthlimit} for details). The difference in times is more pronounced for the term ``feel'', with a drop from 26.78ms to 18.05ms. For the term ``james'', lookup times are much closer together and not as affected by depth limits. This is due to the fact that ``feel'' yielded many more results (85 results) than ``james'' (4 results), suggesting that more potential matches had to be searched at the leaf nodes for ``feel'' than for ``james''. Results for ``wait'' are between the others, and also show a moderate drop in lookup time as the maximum depth increases. This is most likely because ``wait'' produced a moderate 36 results, and therefore a moderate number of terms were searched at the leaves.
+As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on lookup times in trie indexes. The graph shows the results for a trie index prefix search, but similar results would be expected on suffix searches. A small set of input tweet data was used (367 KB data, about 2100 tweets), and the same three words were looked up in indexes created with differing maximum depths. The lookup time tends to decrease as the maximum depth increases; this is because depth cutoffs can result in slow searches through word mappings stored on leaf nodes (see Section~\ref{depthlimit} for details). The difference in times is more pronounced for the term ``feel'', with a drop from 26.78ms to 18.05ms. For the term ``james'', lookup times are much closer together and not as affected by depth limits. This is due to the fact that ``feel'' yielded many more results (85 results) than ``james'' (4 results), suggesting that more potential matches had to be searched at the leaf nodes for ``feel'' than for ``james''. Results for ``wait'' are between the others, and also show a moderate drop in lookup time as the maximum depth increases. This is most likely because ``wait'' produced a moderate 36 results, and therefore a moderate number of terms were searched at the leaves.
 
 \begin{figure}[h!]
-   \includegraphics[scale=.43]{trie_maxdepth_graph}
+   \includegraphics[scale=.38]{trie_maxdepth_graph}
   \caption{Maximum depth vs lookup times for a prefix trie index. A depth of ``None'' indicates that there is no limit. The results for three different search terms are shown. The dataset size was roughly 2100 tweets.}
 \label{comptrie}
 \end{figure}
@@ -337,6 +389,9 @@ Demonstrations of the two applications are accessible at \texttt{http://128.52.1
 Newer peer-to-peer standards such as WebRTC for browsers may make more client-heavy social and interactive applications feasible in the future.
 
 \section{Future Work}
+The functionality of Lucy.js can be expanded to perform more complex queries and to improve the quality of returned results. While prefix and suffix searches are currently handled, arbitrary substring or regex searches are not supported. With these new features, users could write more customized queries and get better results. Additional forms of natural language processing could also improve the quality of results returned on searches. For example, synonym replacement could be implemented similarly to Postgres , allowing Lucy.js to find text results with similar themes or meaning. To improve performance, the existing indexes -- particularly the trie index -- could be optimized during index creation.
+
+Another avenue for future research would be collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
 
 \section{Conclusion}
 

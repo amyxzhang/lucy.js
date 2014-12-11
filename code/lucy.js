@@ -215,6 +215,7 @@ Lucy.baselineSearch = function(db, query, objectStoreName) {
     var matches = [];
     var ret = new IDBIndexRequest(objectStore, transaction);
     ret.result = [];
+    
     opencursor.onsuccess = function (evt) {
         var cursor = evt.target.result; 
         if (cursor) {
@@ -224,12 +225,14 @@ Lucy.baselineSearch = function(db, query, objectStoreName) {
 
             // tokenize string
             var tokens = Object.keys(Lucy.tokenize(queryText, {disableStemming: true, allowStopWords: true}).tokens);
+            
             for (var i=0; i<tokens.length; i++) {
                 if (text.indexOf(tokens[i]) != -1) {
                     ret.result.push(cursor.value);
                     break;
                 }
             }
+            
             cursor.continue(); 
         } else {
             ret.onsuccess();
