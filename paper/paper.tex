@@ -282,7 +282,7 @@ Every node in our hybrid trie has its entire path as its key. Therefore, when fa
 
 Then, every node includes an array of characters that are the children of the node in the trie. The key of each child is determined by concatenating the key of the parent node with each of the strings in the children array.
 
-Every node can also potentially include a list of document ids, for documents that contain its prefix as a token (i.e. not a prefix of some longer token). Nodes without children must contain a list of document ids, but internal nodes can also contain document ids. For example, the node for “cat” would contain document ids of documents with the word "cat" itself, as well as children, for terms like "catsitting", "caturday" or "catnip". For these examples, the list of children could be \texttt{['n', 's', 'u']}.
+Every node can also potentially include a list of document ids, for documents that contain its prefix as a token (i.e. not a prefix of some longer token). Nodes without children must contain a list of document ids, but internal nodes can also contain document ids. For example, the node for ``cat” would contain document ids of documents with the word ``cat" itself, as well as children, for terms like ``catsitting", ``caturday" or ``catnip". For these examples, the list of children could be \texttt{['n', 's', 'u']}.
 
 We can see that if we discard children and child-less nodes, our index basically becomes a simple inverted index with no stemming. However, traversing the subtree for prefix searches also makes it function like a prefix trie, hence the name Hybrid (prefix/suffix) trie.
 
