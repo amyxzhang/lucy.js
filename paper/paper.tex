@@ -288,7 +288,7 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \end{figure}
 
 \subsection{Depth-Limiting for Tries}
-As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on lookup times in trie indexes. The graph shows the results for a trie index prefix search, but the similar results would be expected on suffix searches. A small set of input tweet data was used (367 KB data, about 2100 tweets), and the same three words were looked up in indexes created with differing maximum depths. The lookup time tends to decrease as the maximum depth increases; this is because depth cutoffs can result in slow searches through word mappings stored on leaf nodes (see Section~\ref{depthlimit} for details). The difference in times is more pronounced for the term ``feel'', with a drop from 26.78ms to 18.05ms. For the term ``james'', lookup times are much closer together and not as affected by depth limits. This is due to the fact that ``feel'' yielded many more results (85 results) than ``james'' (4 results), suggesting that more potential matches had to be searched at the leaf nodes for ``feel'' than for ``james''. Results for ``wait'' are between the others, and also show a moderate drop in lookup time as the maximum depth increases. This is most likely because ``wait'' produced a moderate 36 results, and therefore a moderate number of terms were searched at the leaves.
+As seen in Figure~\ref{comptrie}, the maximum depth parameter has an effect on lookup times in trie indexes. The graph shows the results for a trie index prefix search, but similar results would be expected on suffix searches. A small set of input tweet data was used (367 KB data, about 2100 tweets), and the same three words were looked up in indexes created with differing maximum depths. The lookup time tends to decrease as the maximum depth increases; this is because depth cutoffs can result in slow searches through word mappings stored on leaf nodes (see Section~\ref{depthlimit} for details). The difference in times is more pronounced for the term ``feel'', with a drop from 26.78ms to 18.05ms. For the term ``james'', lookup times are much closer together and not as affected by depth limits. This is due to the fact that ``feel'' yielded many more results (85 results) than ``james'' (4 results), suggesting that more potential matches had to be searched at the leaf nodes for ``feel'' than for ``james''. Results for ``wait'' are between the others, and also show a moderate drop in lookup time as the maximum depth increases. This is most likely because ``wait'' produced a moderate 36 results, and therefore a moderate number of terms were searched at the leaves.
 
 \begin{figure}[h!]
    \includegraphics[scale=.43]{trie_maxdepth_graph}
@@ -321,10 +321,13 @@ The data also shows that the number of results has an  impact on lookup time. Th
 Newer peer-to-peer standards such as WebRTC for browsers may make more client-heavy social and interactive applications feasible in the future.
 
 \section{Future Work}
+The functionality of Lucy.js can be expanded to perform more complex queries and to improve the quality of returned results. While prefix and suffix searches are currently handled, arbitrary substring or regex searches are not supported. With these new features, users could write more customized queries and get better results. Additional forms of natural language processing could also improve the quality of results returned on searches. For example, synonym replacement could be implemented similarly to Postgres , allowing Lucy.js to find text results with similar themes or meaning. To improve performance, the existing indexes -- particularly the trie index -- could be optimized during index creation.
+
+Another avenue for future research would be collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
 
 \section{Conclusion}
 
-\bibliographystyle{abbrv}
-\bibliography{paper}
+%\bibliographystyle{abbrv}
+%\bibliography{paper}
 
 \end{document}
