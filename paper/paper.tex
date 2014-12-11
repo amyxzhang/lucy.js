@@ -270,8 +270,35 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \begin{figure}[h!]
   \centering
    \includegraphics[scale=.4]{hybrid-trie}
-  \caption{Structure of a hybrid trie.}
+  \caption{Structure of a hybrid trie with leaf and path shrink.}
 \end{figure}
+
+We also implemented a novel approach, which we call a hybrid trie: A hybrid between an inverted index and a prefix (or suffix) trie. This approach takes advantage of the fact that every object store in IndexedDB is essentially a hash index with very fast key lookups. 
+
+Every node in our hybrid trie has its entire path as its key. Therefore, when faced with a prefix query, we can directly jump to the position in the trie that corresponds to that prefix instead of doing \(O(n)\) lookups on the size of the prefix.
+
+Then, every node includes an array of characters that are the children of the node in the trie. The key of each child is determined by concatenating the key of the parent node with each of the strings in the children array.
+
+Every node can also potentially include a list of document ids, for documents that contain its prefix as a token (i.e. not a prefix of some longer token). Nodes without children must contain a list of document ids, but internal nodes can also contain document ids. For example, the node for “cat” would contain document ids of documents with the word "cat" itself, as well as children, for terms like "catsitting", "caturday" or "catnip". For these examples, the list of children could be \texttt{['n', 's', 'u']}.
+
+\subsubsection{Leaf and path Shrink}
+
+To eliminate wasteful lookups, we implement leaf and path shrinkage. In tries, there are often long sequences of nodes with only one child. If those nodes have no document ids, we can combine them to a single node without any loss of functionality.
+
+Shrinkage is a post-processing step after index generation, since we cannot know which nodes can be combined until all documents have been added to the index. Then our shrinkage algorithm works as follows:
+
+\begin{verbatim}
+for each node: 
+    if node.children = 1:
+        for each parent's children:
+        	    if children[i] points to node:
+        	    	children[i] += child.prefix;
+        // number of characters to reach parent:
+        child.parent++
+        delete node
+\end{verbatim}
+
+This results in a small speed increase, but since lookups by key in indexedDB are already quite fast, the increase is not significant. However, it also results in space savings, which is important because space on the client-side is very limited: after only a few Megabytes, browsers will ask for confirmation by the user, which is disruptive and can lead to non-technical users declining merely out of confusion.
 
 \section{Performance and Comparison}
 
@@ -282,9 +309,9 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \subsubsection{Index Lookups}
 
 
-\begin{figure}[h!]
+\begin{figure}
    \includegraphics[scale=.53]{query-times}
-  \caption{caption here}
+  \caption{Comparison of query times for various queries with different result set sizes (left to right: smaller to larger) between our three main types of indexes and sequential search (the only way to search strings that indexedDB offers). }
 \end{figure}
 
 \subsection{Depth-Limiting for Tries}
