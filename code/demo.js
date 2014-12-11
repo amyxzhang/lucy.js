@@ -128,29 +128,36 @@ $('#build-suffix-index').onclick = function () {
 
 };
 
-function search(db, query, objectStore) {
+function search(db, query, objectStore, optionalArgs) {
 	var startTime = now();
-	var type = "inverted";
-	var indexName = objectStore + '_text';
-	
-	if (/%$/.test(query)) { // Ends with %?
-		// Prefix search
-		type = "prefix";
-		indexName += '_' + type;
-	}
-	else if (query.indexOf('%') === 0) { // Starts with %?
-		// Suffix search
-		type = "suffix"
-		indexName += '_' + type;
-	}
-	
-	var transaction = db.transaction([objectStore, indexName], "readonly");
-	var objectStore = transaction.objectStore("tweets");
+    var request;
+    
+    if (optionalArgs && optionalArgs.noIndex) {
+        // optional arg to revert to a baseline search of objectStore
+        request = Lucy.baselineSearch(db, query, objectStore);
+    } else {
+        var type = "inverted";
+        var indexName = objectStore + '_text';
+        
+        if (/%$/.test(query)) { // Ends with %?
+            // Prefix search
+            type = "prefix";
+            indexName += '_' + type;
+        }
+        else if (query.indexOf('%') === 0) { // Starts with %?
+            // Suffix search
+            type = "suffix"
+            indexName += '_' + type;
+        }
+        
+        var transaction = db.transaction([objectStore, indexName], "readonly");
+        var objectStore = transaction.objectStore("tweets");
 
-	var index = objectStore.index("text", type);
-	
-	// get returns a single entry (one with lowest key value)
-	var request = index.get(query.replace(/%/g, ''));
+        var index = objectStore.index("text", type);
+        
+        // get returns a single entry (one with lowest key value)
+        request = index.get(query.replace(/%/g, ''));
+    }
 	
 	request.onerror = function(evt) {
 		console.error(evt, query);

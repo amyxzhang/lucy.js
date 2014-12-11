@@ -59,6 +59,7 @@ Lucy.tokenize = function(string, options) {
 	options = options || {};
 	options.disableStemming = !!options.disableStemming;
 	options.enablePosition = !!options.enablePosition;
+    options.allowStopWords = !!options.allowStopWords;
 	
 	string = string.toLowerCase();
 	var tokens = string.match(/\w+/g);
@@ -73,7 +74,11 @@ Lucy.tokenize = function(string, options) {
 	for (var i=0; i<tokens.length; i++) {
 		var stem = options.disableStemming? tokens[i] : stemmer(tokens[i]);
 		
-		var count = Lucy.isStopWord(tokens[i])? stopwordCount : tokenCount;
+        if (options.allowStopWords) {
+            var count = tokenCount;
+        } else {
+            var count = Lucy.isStopWord(tokens[i])? stopwordCount : tokenCount;
+        }
 		
 		
 		if (!options.enablePosition) {
@@ -203,6 +208,41 @@ Lucy.normalizeWeights = function(doc_obj, norm_level) {
 	}
 };
 
+Lucy.baselineSearch = function(db, query, objectStoreName) {
+    var transaction = db.transaction([objectStoreName], "readonly");
+    var objectStore = transaction.objectStore(objectStoreName);
+    var opencursor = objectStore.openCursor();
+    var matches = [];
+    var ret = new IDBIndexRequest(objectStore, transaction);
+    ret.result = [];
+    opencursor.onsuccess = function (evt) {
+        var cursor = evt.target.result; 
+        if (cursor) {
+            var text = cursor.value["text"];
+            var docId = cursor.value["id"];
+            var queryText = query.replace(/%/g, '');
+
+            // tokenize string
+            var tokens = Object.keys(Lucy.tokenize(queryText, {disableStemming: true, allowStopWords: true}).tokens);
+            for (var i=0; i<tokens.length; i++) {
+                if (text.indexOf(tokens[i]) != -1) {
+                    ret.result.push(cursor.value);
+                    break;
+                }
+            }
+            cursor.continue(); 
+        } else {
+            ret.onsuccess();
+        }
+    };
+    
+    opencursor.onerror = function (evt) {
+        console.log(evt);
+        ret.onerror();
+    };
+
+    return ret;
+};
 
 
 /*
