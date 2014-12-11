@@ -88,12 +88,13 @@ We also demonstrate several real-life situations that may call for a hybrid clie
 
 \section{Architecture and Overview}
 
-In this section, we explain the overall goals and architecture of the Lucy.js system, how it fits into IndexedDB, as well as give further details of our implementation. 
+In this section, we explain the overall goals and architecture of the Lucy.js system, how it fits into IndexedDB, as well as give further details of our implementation. In Figure~\ref{system}, the overall architecture is shown as well as a simplified workflow for a typical \texttt{get} call on an inverted index.
 
 
 \begin{figure}[]
 	\includegraphics[scale=.43]{arch}
 	\caption{Architecture of Lucy.js}
+	\label{system}
 \end{figure}
 
 \subsection{Goals}
@@ -198,23 +199,24 @@ The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which hol
 The core code as well as examples can be found on Github\footnote{https://github.com/amyxzhang/lucy.js}.
 
 
-
-
-
-
 \section{Index Implementations}
 
-We looked to many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.
+We looked to many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.:
 
 \begin{figure}
   \centering
    \includegraphics[scale=.35]{inverted-index}
-  \caption{Structure of a simplified inverted index, as it would be stored in IndexedDB. Note that our implementation also includes additional information about the position of the tokens in the document (among other things), for better ranking}
+  \caption{Structure of a simplified inverted index, as it would be stored in IndexedDB. Note that our implementation can also include additional information about the position of the tokens in the document (among other things), for better ranking}
+\label{invindex}
 \end{figure}
 
 \subsection{Inverted Indexes}
 
+In an inverted or reverse index, tokens taken from the full-text field make the keys of this object store. The value given a token key is a set of document ids that correspond to the documents that contain this token in that field. A example of what a inverted index could look like is given in Figure~\ref{invindex}. Our implementation of an inverted index is relatively straightforward, as the structure is suited to a key-value store. When the user wishes to use Cover Density Ranking to compute relevancy scores, we also store positions of tokens along with the document ids. We comma delinate positions, keep them in sorted order, and separate them from the document id with a colon. For example, given the data in Figure~\ref{invindex}, we could have \texttt{"tweet":\{docIds:[3:0,7,10]\}}.
 
+When creating an inverted index, we first create a new object store that will hold the index. Then we use an \texttt{IDBCursor} over the original object store to iterate through all documents in succession. After tokenizing, removing stopwords, and stemming the tokens, we then iterate through all the tokens, inserting them into the inverted index asynchronously. Because we do need to often get and rewrite lists of documents for each new occurrence, a potential better version of this method would be to construct partial inverted indexes in memory and batch write them to the database. Additionally, some tokens may have a very large number of documents, making getting and rewriting even more wasteful, though a stricter stopword list can help to mitigate this problem somewhat.
+
+When a get call is made to an inverted index, we use the same natural language processing we used for the index creation on the search query. Then for each token in the query, we make an asychronous call to the index to search for that token and return the document ids that contain that token. After resolving duplicates and counting frequencies for each document, we go back to the original object store to retrieve the original documents given the document ids. IndexedDB does not provide batch \texttt{get} calls, so we grab the documents one-by-one asynchronously. Once all of them are retrieved, we use the designated ranking algorithm to calculate \texttt{score} values and sort the documents before returning them to the user via a callback function.
 
 \subsection{Prefix and Suffix Tries}
 
