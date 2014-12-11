@@ -98,22 +98,22 @@ In this section, we explain the overall goals and architecture of the Lucy.js sy
 
 \subsection{Goals}
 
-The two main goals of Lucy.js we aimed to achieve while implementing it were: (i) to build a search engine extension to IndexedDB that is easy to use and similar to the existing IndexedDB API, and (ii) to create different types of indexes that can all be used for full-text searching and find out which are more suited to which tasks and what the trade-offs are. We design Lucy.js so that it is easy as a developer to be able to specify which type of index to make on a field based on the type of queries that will most often be submitted.
+The two main goals of Lucy.js we aimed to achieve during implementation were: (i) to build a search engine extension to IndexedDB that is easy to use and similar to the existing IndexedDB API, and (ii) to create different types of indexes that can all be used for full-text searching and find out which are more suited to which tasks and what the trade-offs are. We design Lucy.js so that it is easy as a developer to be able to specify what type of index they wish to make on a field.
 
 \subsection{IndexedDB}
 
 Indexed Database (IndexedDB) is a collection of Javascript APIs and is an official W3C specification (Proposed Recommendation stage) ~\cite{w3c}. It is supported by almost every modern browser, both on desktop and mobile devices. Chrome, Firefox, Internet Explorer, Opera, and Safari are only some of the browsers that have added support for IndexedDB in their modern versions. For our implementation, we focused our testing and demos on the Chrome browser as it is currently the most widely used.
-On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, put and get commands using the key, and forward and backward iteration over keys. 
+On Chrome browsers, IndexedDB interfaces with a key-value store named LevelDB built at Google in C++ and inspired by BigTable. In LevelDB, keys and values are arbitrary byte arrays and data is stored in sorted order by key. It supports batch writing, secondary indexes, \texttt{put} and \texttt{get} commands using the key, and forward and backward iteration over keys (range queries). 
 
-The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specifies what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write lock the specified object stores for the entire duration of the transaction.
-All transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a put or a get, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
+The IndexedDB API supports transactions that rely on shared read and exclusive write locking. At transaction creation time, the code must specify what kind of transaction it is (read-only, write-only, or read-write) and what object stores (similar to tables in a relational data store) it will access.  Read-only transactions can run concurrently but transactions that write will lock the specified object stores for the entire duration of the transaction.
+All transactions in IndexedDB are asynchronous, meaning that one must request for a database operation, such as a \texttt{put} or a \texttt{get}, to happen and then pass a callback function. Then a notification via a DOM event is triggered when the operation actually completes, and the type of event returned tells whether the operation succeeded or failed.
 
 
-\subsection{Extending IndexedDB}
+\subsection{Extending IndexedDB with Lucy.js}
 
 \subsubsection{Creating a Full-Text Index}
 The interface to a database is maintained through an \texttt{IDBDatabase} object.
-To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the object store \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, key\_path\right)$} function for creating full-text indexes. We add an additional optional parameter of \texttt{type} which allows the developer to specify a type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on an object field \texttt{text} in an object store of Twitter tweets.
+To alter the schema of an IndexedDB database, for instance to create a new object store, the code must update the database version from its current version. This is not necessary when creating a normal secondary index on an existing object store. However, it will need to be updated when creating one of our new full-text indexes, as they are stored in IndexedDB as regular object stores. Thus the developer needs to persist locally the current version of the database and increment it before creating a new full-text index. Otherwise, the creation of a full-text index is very similar to that of a normal index. Given the \texttt{IDBObjectStore} that the index will be created on, we repurpose the existing \texttt{createIndex$\left(index\_name, key\_path\right)$} function for creating full-text indexes. We add an additional optional parameter of \texttt{type} which allows the developer to specify a type of full-text index they would like to build. The full-text index options we allow are \texttt{inverted}, \texttt{prefix}, and \texttt{suffix}. *********UPDATE If the developer does not specify a type, then a typical IndexedDB index would be created. Below is an example of JavaScript code to create an inverted index called \texttt{tweets\_text} on a field \texttt{text} in an object store of Twitter tweets.
 
 \begin{verbatim}
 var newDBVersion = incrementDBVersion();
@@ -136,13 +136,12 @@ DBRequest.onsuccess = function(evt) {
 There are two ways to retrieve items given an \texttt{IDBIndex} object using the IndexedDB API. 
 The first is to use a \texttt{get} function, which returns an \texttt{IDBRequest} object with the \texttt{result} field populated with the value in the object store that corresponds to the given index key. The second is to call \texttt{openCursor}, which returns an \texttt{IDBCursor} object that can be iterated over. One can pass in a range of keys instead of just one key to either function, using the \texttt{IDBKeyRange} interface.
 
-In our case, a given search query may return many results that have different levels of relevance to the query. For this reason, each object returned has an addition field called \texttt{score}, which has a relevancy value with higher being more relevant. 
+In our case, a given search query may return many results that have different levels of relevance to the query. For this reason, each object returned has an additional field called \texttt{score},  with higher being more relevant. 
 In the next section, we go into more detail into how the score is calculated for different types of search queries.
-By default we return all relevant (\texttt{score} $>$ 0) objects in reverse order of \texttt{score}. 
+By default we return all relevant (\texttt{score} $>$ 0) objects in descending\texttt{score} order. 
+However, a query can return a large number of items with low relevancy if the query contains a term that is common. We extend the \texttt{IDBKeyRange} interface to include ranges of \texttt{score} values, so that users can set a cutoff or range of the relevancy score.
 
-However, a query can return a large number of items with low relevancy if the query contains a term that is common. In IndexedDB, there is an interface called \texttt{IDBKeyRange} that is used for when a user wishes to query a range of keys. We extend this interface to include ranges of \texttt{score} values, so that users can set a cutoff or range of the relevancy score. This feature is also one that is available in PostgreSQL as **********.
-
-In the follow code snippet, we provide an example of a \texttt{get} function on the inverted index created in the last section. The object returned is an \texttt{IDBIndexRequest} object, which mimics the behavior of \texttt{IDBRequest}.
+In the follow code snippet, we provide an example of a \texttt{get} function on the inverted index created in the last section. The object returned by the second line is an \texttt{IDBIndexRequest} object which mimics the behavior of \texttt{IDBRequest}.
 
 \begin{verbatim}
 var index = objStore.index("tweets_text");
@@ -172,30 +171,31 @@ Other functions of \texttt{IDBIndex} that are supported include \texttt{getKey},
 
 \subsection{Natural Language Processing}
 
-Queries to our full-text search engine can be words or phrases. In addition, they can contain a special wildcard symbol \textbf{\%} at the start or end of any word to search for parts of words. At this time, we do not support full regular expressions nor exact phrase matches.
+Queries to our full-text search engine can be words or phrases. In addition, they can contain a special wildcard symbol \textbf{\%} at the start or end of any word to search for parts of words. This is possible with our trie indexes, as we explain in the next section. At this time, we do not support full regular expressions nor exact phrase matches.
 
 The processing that we conduct on queries and on the full text is standard for most search engines such as Lucene, MySQL, and PostgreSQL. The first thing we do is tokenize the text into contiguous strings of alphabetic characters, which are generally words. We convert the entire text to lower case and then remove stopwords from the bag of words. The stopword list we employ is taken from MySQL's full-text stopword list\footnote{http://dev.mysql.com/doc/refman/5.1/en/fulltext-stopwords.html}. The reason we remove stopwords is because these words are present in much of natural language and including them could grow the result set to be very large but not return very relevant results.
 
 Next, we employ stemming on each individual word using an open source JavaScript implementation of a Snowball stemmer\footnote{https://github.com/fortnightlabs/snowball-js}. 
 Stemming can be a useful part of search engines because a user may be interested in text containing a word even if the word is pluralized or has some other form of suffix.
 
-Sometimes however these processing techniques are not desired, given a particular type of text, type of query, or type of index used. For instance, stemming does not make sense when we are building a suffix trie. Our system allows the developer to pass optional parameters to disable stopword removal or stemming when desired. It is also possible for developers to edit the stopwords list for a list that is domain-specific or otherwise more preferred.
+Sometimes however these processing techniques are not desired, given a particular type of text, type of query, or type of index used. For instance, stemming does not make sense when we are building a suffix trie. Our system allows the developer to pass optional parameters to disable stopword removal or stemming when desired. It is also possible for developers to replace the stopwords list for a list that is domain-specific or otherwise more preferred.
 
 Finally, our system offers flexible support for other languages. The stemmer that we employ has support for 14 common languages in addition to English. When creating an index, a developer can specify as an optional parameter the language the full-text strings are in. Then, when it comes time, the stemmer will choose the given language to use for stemming.
 Also, the stopword list is included as a separate JavaScript file. To swap out one language's stopwords with another's, one only needs to replace the JavaScript file imported in the HTML page. This prevents web pages from having to load stopword lists of all supported languages when using Lucy.js. 
 
 \subsection{Scoring and Ranking Results}
 
-There are many ways to score and rank results of a search query. Some techniques, such as \textit{tf-idf}, require constant recalculation of document metadata. Others require knowning positional information about a word within a document. We define several built-in ranking functions derived from PostgreSQL's built-in \texttt{ts\_rank} and \texttt{ts\_rank\_cd} functions that take in a \texttt{normalization} option, with integer inputs providing different types of document normalizations\footnote{http://www.postgresql.org/docs/8.3/static/textsearch-controls.html}.
-The PostgreSQL's functions take into account how often the query terms appear in the document as well as how close together the terms are in the document. However, it is possible for a developer to implement their own ranking function and replace ours with theirs within Lucy.js if they so wish.
+There are many ways to score and rank results of a search query. Some techniques, such as \textit{tf-idf}, require continual recalculation of document metadata. Others require knowing positional information about a word within a document. We define several built-in ranking functions similar to PostgreSQL's built-in \texttt{ts\_rank} and \texttt{ts\_rank\_cd} functions that take in a \texttt{normalization} option, with integer inputs providing different types of document normalizations\footnote{http://www.postgresql.org/docs/8.3/static/textsearch-controls.html}.
+PostgreSQL's functions take into account how often the query terms appear in the document as well as how close together the terms are in the document. However, it is possible for a developer to implement their own ranking function and replace ours with theirs within Lucy.js if they so wish.
 
-One function that we provide is \texttt{Lucy.calculateWeight()}, which counts the number of words in the search query that appear in the document. The other ranking we provide is \texttt{Lucy.calculateCoverDensity()}, which implements Cover Density Ranking~\cite{li2002improvement}, an algorithm that takes into account positional information. For this algorithm to work, we need to store at index creation time the positions that the word appears in the document. Both functions take in an optional \texttt{normalization} integer where the developer can specify whether they are interested in normalizing by document length or unique number of words in the document. If normalization is desired, then at index creation time, we calculate these measures and store them with the document object.
+One function that we provide is \texttt{Lucy.calculateWeight()}, which counts the number of words in the search query that appear in the document. The other ranking we provide is \texttt{Lucy.calculateCoverDensity()}, which implements Cover Density Ranking~\cite{li2002improvement}, an algorithm that takes into account positional information. For this algorithm to work, we need to store at index creation time the positions that the word appears in within the document. Both functions take in an optional \texttt{normalization} integer where the developer can specify whether they are interested in normalizing by document length or unique number of words in the document. If normalization is desired, then at index creation time, we calculate these measures and store them with the document object.
 
 \subsection{Implementation}
 
-We created Lucy.js in JavaScript, as the IndexedDB API is also in JavaScript. The code consists of three main files - \texttt{lucy.js}, \texttt{invindex.js}, and \texttt{trieindex.js} that the developer must include in their HTML file. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
+We created Lucy.js in JavaScript, as the IndexedDB API is also in JavaScript. The code consists of three main files - \texttt{lucy.js}, \texttt{invindex.js}, \texttt{trieindex.js},  and \texttt{trieindex-new.js} *********UPDATE? plus some third-party files that the user must include in their HTML file. The user should also additionally add one of the \texttt{<language>\_stopwords.js} files in order to pick a language to check stopwords on.
 
-The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which holds various text processing functions that the different indexes use. There is also an extension of \texttt{IDBRequest} called \texttt{IDBIndexRequest} that provides the same behavior, only for our full-text indexes. Finally, there are a set of functions that intercept functions of \texttt{IDBObjectStore}. When a user calls \texttt{create\_index} or \texttt{index}, if they are creating or referring to a full-text index we direct the function to one of our index implementations. When a user calls \texttt{add},  \texttt{delete}, or \texttt{put} on an object store that has a full-text index, we additionally add the item to our indexes.
+The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which holds various text processing functions that the different indexes use. There is also an extension of \texttt{IDBRequest} called \texttt{IDBIndexRequest} that provides the same behavior, only for our full-text indexes. Finally, there are a set of functions that intercept functions of \texttt{IDBObjectStore}. When a user calls \texttt{create\_index} or \texttt{index}, if they are creating or referring to a full-text index we direct the function to one of our index implementations. When a user calls \texttt{add},  \texttt{delete}, or \texttt{put} on an object store that has a full-text index, we additionally add the item to our indexes. In the following section, we explain in more detail our index implementations.
+The core code as well as examples can be found on Github\footnote{https://github.com/amyxzhang/lucy.js}.
 
 
 
@@ -204,7 +204,7 @@ The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which hol
 
 \section{Index Implementations}
 
-We looked to many existing implementations of search engines and the indexes they used. Reverse indexes in Lucene. GiN and GiST indexes in PostgreSQL. Prefix and suffix tries from 
+We looked to many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.
 
 \begin{figure}
   \centering
@@ -213,6 +213,8 @@ We looked to many existing implementations of search engines and the indexes the
 \end{figure}
 
 \subsection{Inverted Indexes}
+
+
 
 \subsection{Prefix and Suffix Tries}
 
