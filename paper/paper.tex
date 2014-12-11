@@ -368,11 +368,14 @@ We conduct our evaluation on two different real-life applications: a full-text s
 
 In Figure~\ref{compare}, we report the average time taken for each of the approaches (client versus server) on the two applications and dataset sizes. As can be seen, overall the client-side only approach is faster than than the server-side approach. When looking at full-text search, even when the dataset size grows over a magnitude larger, the server-side average time varies little. This suggests that the time taken is mostly taken up by network latency. We do see a small increase in the time taken for the client-side database. This suggests that as datasets grow larger, it may be a better decision to store the majority of the data on the server side and do queries on smaller subsets in the client. 
 
-When looking at the typeahead search bar, we see that when the dataset gets larger, the average time taken for both client and server increases, though the client-side increase is greater. When looking more closely at the times for different queries made, we notice that there is a great deal of variation in the time because a very short prefix will return a much larger result set than a longer prefix. The client side had greater variation overall, with a standard deviation of 56.477ms, maximum time of 256ms, and minimum time of 1ms. The server side had a standard deviation of 49.116ms, maximum time of 220ms, and minimum time of 14ms. Given these findings, a best approach may be employ a mixed approach and send shorter prefixes to the server and longer prefixes to the client. Generally, queries that will return a small result set would be faster if they are served from the client, as the network latency always tacks on extra time for the query to the server. Queries that will return a very large result set may have better performance if they are sent to the server.
+When looking at the typeahead search bar, we see that when the dataset gets larger, the average time taken for both client and server increases, though the client-side increase is greater. When looking more closely within trials at the times for all the queries made, we notice that there is a great deal of variation because a very short prefix will return a much larger result set than a longer prefix. The client side had greater variation overall, with a standard deviation of 56.477ms, maximum time of 256ms, and minimum time of 1ms. The server side had a standard deviation of 49.116ms, maximum time of 220ms, and minimum time of 14ms. Given these findings, a best approach may be employ a mixed approach and send shorter prefixes to the server and longer prefixes to the client. Generally, queries that will return a small result set would be faster if they are served from the client, as the network latency always tacks on extra time for the query to the server. Queries that will return a very large result set may have better performance if they are sent to the server.
 
 
 
 \subsection{Live Demos}
+
+Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user first deletes all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client-side database requires the user to continue clicking the button to run more queries and see an updating average time.
+
 
 \begin{figure}[h!]
 \centering
@@ -380,10 +383,13 @@ When looking at the typeahead search bar, we see that when the dataset gets larg
   \caption{Screenshot of typeahead search bar demo.}
 \label{demo}
 \end{figure}
-Demonstrations of the two applications are accessible at \texttt{http://128.52.184.3/}. Figure~\ref{demo} has a screenshot of the typeahead search bar demo. For both demos, the user first deletes all data on the server as well as on the client. Then they choose whether to import the data, existing as a JSON file on the server, into the server-side MySQL database or into the client-side IndexedDB database. At that point the typeahead bar will work, querying the respective database, returning results, and outputting the time taken for each query. The user can additionally do a time test, which runs a selection of queries against the respective database and outputs the average time. Since IndexedDB does not yet support a synchronous API, the time test for the client-side database requires the user to continue clicking the button to run more queries and see an updating average time.
 
 
 \section{Discussion}
+
+From our findings, we determine that client-side search engines are indeed feasible to build and have reasonable performance on 
+ could be very useful for the right application and 
+
 
 
 Newer peer-to-peer standards such as WebRTC for browsers may make more client-heavy social and interactive applications feasible in the future.
@@ -391,9 +397,11 @@ Newer peer-to-peer standards such as WebRTC for browsers may make more client-he
 \section{Future Work}
 The functionality of Lucy.js can be expanded to perform more complex queries and to improve the quality of returned results. While prefix and suffix searches are currently handled, arbitrary substring or regex searches are not supported. With these new features, users could write more customized queries and get better results. Additional forms of natural language processing could also improve the quality of results returned on searches. For example, synonym replacement could be implemented similarly to Postgres , allowing Lucy.js to find text results with similar themes or meaning. To improve performance, the existing indexes -- particularly the trie index -- could be optimized during index creation.
 
-Another avenue for future research would be collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
+Another avenue for future research would be to build and evaluate applications that do collaborative searches between a client and server. A client could store partial data and use Lucy.js to search locally, while the server could respond with additional results not stored on the client. This could be useful to perform client-side caching of data for a web application, so that communication with the server is not always required.
 
 \section{Conclusion}
+
+Client-side search engines offer new functionality to client-side applications and potential speed improvements for applications that query a server-side search engine. We implemented a client-side search engine as an extension of the IndexedDB API, building several different types of index structures including inverted indexes, prefix and suffix tries, and a hybrid approach combining the two. We compare the performance of our indexes against each other and find that our hybrid approach is overall the fastest. We additionally evaluate our system by implementing a full-text search bar and a typeahead search bar and compare performance of a client-side only approach with a server-side only approach using MySQL. We find that for small to moderate datasets, the network latency incurred by trips to the server make client-size querying faster. Finally, we imagine potential applications that could be enhanced using our client-side search engine.
 
 \bibliographystyle{abbrv}
 \bibliography{paper}
