@@ -20,7 +20,7 @@ self.Lucy = {};
 Lucy.init = function(db) {
 	// Fetch all indices from database
 	this.indexCache = {};
-	
+
 	if (db.objectStoreNames.contains('__LucyIndices')) {
 		var cursor = db.transaction("__LucyIndices", "readonly").objectStore("__LucyIndices").openCursor();
 		

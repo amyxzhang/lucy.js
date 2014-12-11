@@ -40,7 +40,7 @@ Many applications on the web today use a combination of client-side and server-s
 However, standard client side databases within browsers do not currently support full-text searching, and it is not clear the best way to engineer full-text indexes on top of the existing infrastructure.
 In this paper, we introduce Lucy.js, a fully client-side search engine built as an extension of the existing well-supported IndexedDB API.
 We compare the performance of the different indexes we implement on different types of full-text content and queries. We find that a hybrid approach combining inverted indexes and tries perform the best, particularly on larger datasets.
-We also implement various real-life applications of our system and compare the performance of our system with that of using a fully server side system. We find that given the costs of network latency, our approach is signficantly faster than relying on a server-side search engine.
+We also implement various real-life applications of our system and compare the performance of our system with that of using a fully server side system. We find that given the costs of network latency, our approach is significantly faster than relying on a server-side search engine.
 Finally, we discuss how our system may open up novel web application and data storage designs that solely use client-side search engines or combine both client and server search engines.
 \end{abstract}
 

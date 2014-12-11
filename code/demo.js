@@ -198,7 +198,7 @@ $(".search").onsubmit = function () {
 	};
 	
 	DBOpenRequest.onerror = function(evt) {
-		console.log(evt);
+		console.error(this.error, evt, this);
 	};
 	
 	return false;
