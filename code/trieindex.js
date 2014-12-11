@@ -82,7 +82,7 @@ var TrieIndex = function(objStore, name, field, mode, maxDepth) {
                                 var matches = result.wordMap[key];
                                 for (var i=0; i < matches.length; i++) {
                                     var m = matches[i];
-                                    docIdsDict[m] = docIdsDict[docId] || 0;
+                                    docIdsDict[m] = docIdsDict[m] || 0;
                                     docIdsDict[m] += weight;
                                 }
                             }
