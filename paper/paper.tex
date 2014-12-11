@@ -206,6 +206,12 @@ The file \texttt{lucy.js} contains a static class called \texttt{Lucy} which hol
 
 We looked to many existing implementations of search engines and the indexes they used. Reverse indexes in Lucene. GiN and GiST indexes in PostgreSQL. Prefix and suffix tries from 
 
+\begin{figure}
+  \centering
+   \includegraphics[scale=.35]{inverted-index}
+  \caption{Structure of a simplified inverted index, as it would be stored in IndexedDB. Note that our implementation also includes additional information about the position of the tokens in the document (among other things), for better ranking}
+\end{figure}
+
 \subsection{Inverted Indexes}
 
 \subsection{Prefix and Suffix Tries}
