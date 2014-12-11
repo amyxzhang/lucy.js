@@ -206,6 +206,12 @@ The core code as well as examples can be found on Github\footnote{https://github
 
 We looked to many existing implementations of search engines and the indexes they use to decide what indexes to build, such as inverted indexes in Lucene and GiN and GiST indexes in PostgreSQL. We initially implemented an inverted index as well as prefix and suffix tries, before also developing a hybrid trie combining elements of both inverted index and tries as a third index.
 
+\begin{figure}
+  \centering
+   \includegraphics[scale=.35]{inverted-index}
+  \caption{Structure of a simplified inverted index, as it would be stored in IndexedDB. Note that our implementation also includes additional information about the position of the tokens in the document (among other things), for better ranking}
+\end{figure}
+
 \subsection{Inverted Indexes}
 
 
@@ -253,6 +259,12 @@ To limit the size of trie indexes, an optional maximum depth can be set. If set,
 \end{figure}
 
 \subsection{Hybrid Tries}
+
+\begin{figure}[h!]
+  \centering
+   \includegraphics[scale=.4]{hybrid-trie}
+  \caption{Structure of a hybrid trie.}
+\end{figure}
 
 \section{Performance and Comparison}
 
