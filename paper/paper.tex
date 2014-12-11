@@ -400,12 +400,16 @@ Demonstrations of the two applications are accessible at \texttt{http://128.52.1
 
 \section{Discussion}
 
-From our findings, we determine that client-side search engines are indeed feasible to build and have reasonable performance on 
- could be very useful for the right application and 
+From our findings, we determine that client-side search engines are indeed feasible to build, can be easy to use, and have improved performance over server-side search engines for certain applications and data sizes. Thus, our system Lucy.js opens up many possibilities for new applications and new data processing and storage architectures.
 
-
-
+First, as stated earlier, there are many reasons why we would want to build applications that store and process more data on the client side. One issue that has had a great deal of attention lately is privacy and the question of the ownership of data. As a pushback against companies and web applications collecting personal and sensitive data to sell or give to others, many people have worked on applications that are more distributed than centralized, such as the Diaspora social network. 
 Newer peer-to-peer standards such as WebRTC for browsers may make more client-heavy social and interactive applications feasible in the future.
+Additionally, another benefit of having data stored in the client specifically for full-text searching is that the queries themselves need not be sent to a server and logged. As shown previously, search queries can reveal a great deal about a person~\cite{teevan2005personalizing, khoshgozaran2009private} and potentially some users would be interested in having private search.
+
+We have also postulated from our findings that a mixed approach combining server and client search queries may be beneficial for performance reasons. For instance, as we saw with the typeahead search bar, longer prefixes are much faster served from the client. 
+Another interesting application that may call for a mixed approach combining server and client queries is personalization. As we found in the previous section, queries that return a large result set might be better sent to the server. This could be used for personalization by having a server return generic results for a query and letting the client side personalize the results through re-ranking and other means. This is additionally useful because this offloads client-specific processing and client-specific data to the client and frees up resources on the server.
+
+Finally, building out client-side storage and processing capabilities makes applications more robust to downtimes, which may be common on smartphone browsers. In addition to caching web pages locally for re-finding, a web application can now also provide searching over these web pages offline.
 
 \section{Future Work}
 The functionality of Lucy.js can be expanded to perform more complex queries and to improve the quality of returned results. While prefix and suffix searches are currently handled, arbitrary substring or regex searches are not supported. With these new features, users could write more customized queries and get better results. Additional forms of natural language processing could also improve the quality of results returned on searches. For example, synonym replacement could be implemented similarly to Postgres , allowing Lucy.js to find text results with similar themes or meaning. To improve performance, the existing indexes -- particularly the trie index -- could be optimized during index creation.
