@@ -281,6 +281,8 @@ Then, every node includes an array of characters that are the children of the no
 
 Every node can also potentially include a list of document ids, for documents that contain its prefix as a token (i.e. not a prefix of some longer token). Nodes without children must contain a list of document ids, but internal nodes can also contain document ids. For example, the node for “cat” would contain document ids of documents with the word "cat" itself, as well as children, for terms like "catsitting", "caturday" or "catnip". For these examples, the list of children could be \texttt{['n', 's', 'u']}.
 
+We can see that if we discard children and child-less nodes, our index basically becomes a simple inverted index with no stemming. However, traversing the subtree for prefix searches also makes it function like a prefix trie, hence the name Hybrid (prefix/suffix) trie.
+
 \subsubsection{Leaf and path Shrink}
 
 To eliminate wasteful lookups, we implement leaf and path shrinkage. In tries, there are often long sequences of nodes with only one child. If those nodes have no document ids, we can combine them to a single node without any loss of functionality.
@@ -300,18 +302,40 @@ for each node:
 
 This results in a small speed increase, but since lookups by key in indexedDB are already quite fast, the increase is not significant. However, it also results in space savings, which is important because space on the client-side is very limited: after only a few Megabytes, browsers will ask for confirmation by the user, which is disruptive and can lead to non-technical users declining merely out of confusion.
 
+\subsubsection{Asynchronous depth-first search}
+
+Since IndexedDB is multi-threaded, every step of a single transaction is asynchronous. This brings several challenges to writing transactions that are not present in most other DBMS', where concurrency conundrums only arise in the context of multiple concurrent transactions.
+
+Even something as simple as a depth-first search on our trie subtree becomes nontrivial when asynchronicity is added in the mix. Individual statements (reads or writes) are atomic, but reads and writes can be interleaved in any possible way (unless special care is taken to enforce a specific interleaving, at the cost of parallelism).
+
+For the DFS case, we maintain a counter of pending paths that we pass by reference to the recursive method responsible for traversing the tree, decrement it by 1 when we reach a leaf and increment it by 1 when we encounter a subtree with more than one elements. When the counter becomes zero at a leaf, we conclude the search.
+
 \section{Performance and Comparison}
+
+\subsection{Data set}
+
+For the performance comparisons in this section we used a CSV dataset of a one million tweet sample originally intended for sentiment analysis\footnote{http://help.sentiment140.com/for-students}.
+
+We first removed unneeded information such as sentiment flags to reduce the size of the dataset, as we are only interested in textual content. We then wrote an ad-hoc Python script to select a random subset and convert it to JSON, which is what the generic IndexedDB importer we wrote expected.
+
+After several tests with different sample sizes, we settled for about 5\% of the data (44771 tweets), since our target browser (Google Chrome) was having difficulty with larger datasets.
 
 \subsection{Comparing Different Index Types}
 
 \subsubsection{Index Creation}
 
+For our 44771 tweets dataset, it took (average of 3 index creations) 3 minutes and 21 seconds to build the inverted index, 47 minutes and 24 seconds to build the prefix trie, 48 minutes and 12 seconds to build the suffix trie and 2 minutes and 53 seconds to build the hybrid prefix trie (we did not measure 
+
 \subsubsection{Index Lookups}
 
+We tried four different queries with different result set sizes (from 25 to 2398) on index type, as well as plain sequential search, which is the only type of string search that IndexedDB offers out of the box. The results can be seen in Figure~\ref{querytimes}.
+
+While all of our indexes have comparable performance, they outperform sequential search by several orders of magnitude. Sequential search for all four of our queries seems to be taking close to 3 seconds, whereas our index-optimized queries take only about 10-100ms. 
 
 \begin{figure}
    \includegraphics[scale=.53]{query-times}
   \caption{Comparison of query times for various queries with different result set sizes (left to right: smaller to larger) between our three main types of indexes and sequential search (the only way to search strings that indexedDB offers). }
+  \label{querytimes}
 \end{figure}
 
 \subsection{Depth-Limiting for Tries}
